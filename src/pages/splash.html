@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bekofy - Yükleniyor...</title>
+  <link rel="stylesheet" href="../css/splash.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+  <!-- Particle Background -->
+  <canvas id="particleCanvas"></canvas>
+
+  <!-- Rotating Ring -->
+  <div class="ring-container">
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+  </div>
+
+  <div class="splash-container">
+
+    <!-- Logo -->
+    <div class="logo-wrapper">
+      <div class="logo-pulse"></div>
+      <div class="logo-pulse pulse-2"></div>
+      <div class="logo-icon">
+        <svg viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="22" fill="url(#logoGrad)" />
+          <path d="M16 14C16 14 32 18 32 24C32 30 16 34 16 34" stroke="white" stroke-width="3" stroke-linecap="round"
+            fill="none" class="wave-path wave-1" />
+          <path d="M16 20C16 20 28 22 28 24C28 26 16 28 16 28" stroke="white" stroke-width="3" stroke-linecap="round"
+            fill="none" class="wave-path wave-2" />
+          <path d="M16 25C16 25 22 23.5 22 24C22 24.5 16 25 16 25" stroke="white" stroke-width="3"
+            stroke-linecap="round" fill="none" class="wave-path wave-3" />
+          <defs>
+            <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
+              <stop offset="0%" stop-color="#1DB954" />
+              <stop offset="100%" stop-color="#1ed760" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Title with letter animation -->
+    <h1 class="brand-name">
+      <span class="letter" style="--i:0">B</span><span class="letter" style="--i:1">e</span><span class="letter"
+        style="--i:2">k</span><span class="letter" style="--i:3">o</span><span class="letter"
+        style="--i:4">f</span><span class="letter" style="--i:5">y</span>
+    </h1>
+
+    <!-- Waveform -->
+    <div class="waveform">
+      <div class="waveform-bar" style="--d:0"></div>
+      <div class="waveform-bar" style="--d:1"></div>
+      <div class="waveform-bar" style="--d:2"></div>
+      <div class="waveform-bar" style="--d:3"></div>
+      <div class="waveform-bar" style="--d:4"></div>
+      <div class="waveform-bar" style="--d:5"></div>
+      <div class="waveform-bar" style="--d:6"></div>
+      <div class="waveform-bar" style="--d:7"></div>
+      <div class="waveform-bar" style="--d:8"></div>
+      <div class="waveform-bar" style="--d:9"></div>
+      <div class="waveform-bar" style="--d:10"></div>
+      <div class="waveform-bar" style="--d:11"></div>
+      <div class="waveform-bar" style="--d:12"></div>
+    </div>
+
+    <p class="brand-tagline">Tık Tık Müzik</p>
+  </div>
+
+  <script>
+    // Particle System
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles = [];
+    const PARTICLE_COUNT = 60;
+
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 3 + 0.5;
+        this.speedX = (Math.random() - 0.5) * 0.8;
+        this.speedY = (Math.random() - 0.5) * 0.8;
+        this.opacity = Math.random() * 0.5 + 0.1;
+        this.hue = Math.random() > 0.5 ? 145 : 140; // green hues
+        this.life = Math.random() * 200 + 100;
+        this.maxLife = this.life;
+      }
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life--;
+        this.opacity = (this.life / this.maxLife) * 0.5;
+        if (this.life <= 0 || this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+          this.reset();
+        }
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 70%, 55%, ${this.opacity})`;
+        ctx.fill();
+        // Glow
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 70%, 55%, ${this.opacity * 0.15})`;
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push(new Particle());
+    }
+
+    // Connect nearby particles with lines
+    function drawConnections() {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 120) {
+            const opacity = (1 - dist / 120) * 0.1;
+            ctx.beginPath();
+            ctx.strokeStyle = `hsla(145, 70%, 55%, ${opacity})`;
+            ctx.lineWidth = 0.5;
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => { p.update(); p.draw(); });
+      drawConnections();
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+
+</body>
+
+</html>

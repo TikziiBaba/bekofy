@@ -1,0 +1,23 @@
+{
+  "name": "bekofy",
+  "version": "1.0.0",
+  "description": "Bekofy - Spotify benzeri masaüstü müzik uygulaması",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "dev": "electron . --dev"
+  },
+  "author": "Bekir",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.100.1",
+    "dotenv": "^17.3.1",
+    "electron-updater": "^6.8.3"
+  },
+  "devDependencies": {
+    "electron": "^41.0.4",
+    "electron-builder": "^26.8.1"
+  }
+}

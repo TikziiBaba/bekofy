@@ -1,0 +1,29 @@
+appId: com.bekofy.app
+productName: Bekofy
+copyright: Copyright © 2026 Bekofy
+
+directories:
+  output: dist
+  buildResources: build
+
+publish:
+  provider: github
+  owner: TikziiBaba
+  repo: bekofy-music-app
+
+files:
+  - "**/*"
+  - "!dist/**"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Bekofy
