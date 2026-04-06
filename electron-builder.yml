@@ -9,7 +9,7 @@ directories:
 publish:
   provider: github
   owner: TikziiBaba
-  repo: bekofy-music-app
+  repo: bekofy
 
 files:
   - "**/*"
