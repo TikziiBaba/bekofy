@@ -417,14 +417,40 @@ async function searchUsers(query) {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return { data: [], error: null };
 
-  const { data, error } = await sb
-    .from('profiles')
-    .select('id, username, avatar_url, role')
-    .neq('id', user.id) // Don't search self
+  // Search profiles
+  const profilesRes = await sb.from('profiles')
+    .select('id, username, avatar_url, role, is_banned')
+    .neq('id', user.id)
     .ilike('username', `%${query}%`)
-    .limit(10);
-    
-  return { data, error };
+    .limit(20);
+  
+  // Search artists table separately with try/catch
+  let artistsData = [];
+  try {
+    const artistsRes = await sb.from('artists')
+      .select('id, name, avatar_url')
+      .ilike('name', `%${query}%`)
+      .limit(10);
+    artistsData = artistsRes.data || [];
+  } catch (e) {
+    console.log('Artists search error:', e);
+  }
+  
+  const profileUsers = profilesRes.data || [];
+  
+  // Add artists from artists table (that aren't already in profiles results)
+  const profileNames = new Set(profileUsers.map(p => (p.username || '').toLowerCase()));
+  const artistUsers = artistsData
+    .filter(a => !profileNames.has((a.name || '').toLowerCase()))
+    .map(a => ({
+      id: a.id,
+      username: a.name,
+      avatar_url: a.avatar_url,
+      role: 'artist',
+      is_banned: false
+    }));
+  
+  return { data: [...profileUsers, ...artistUsers], error: profilesRes.error };
 }
 
 async function addFriend(friendId) {
@@ -756,14 +782,7 @@ async function rejectFriendRequest(friendshipId) {
   return { error };
 }
 
-async function removeFriend(friendshipId) {
-  const sb = getSupabase();
-  const { error } = await sb
-    .from('friendships')
-    .delete()
-    .eq('id', friendshipId);
-  return { error };
-}
+
 
 async function fetchFriends(userId) {
   const sb = getSupabase();
@@ -793,38 +812,6 @@ async function fetchPendingFriendRequests(userId) {
   return { data, error };
 }
 
-async function searchUsers(query) {
-  const sb = getSupabase();
-  const { data, error } = await sb
-    .from('profiles')
-    .select('id, username, avatar_url, role, is_banned')
-    .ilike('username', `%${query}%`)
-    .limit(20);
-  return { data, error };
-}
-
-// ===== Block System =====
-
-async function blockUser(userId, blockedId) {
-  const sb = getSupabase();
-  const { data, error } = await sb
-    .from('blocked_users')
-    .insert({ user_id: userId, blocked_id: blockedId })
-    .select()
-    .single();
-  return { data, error };
-}
-
-async function unblockUser(userId, blockedId) {
-  const sb = getSupabase();
-  const { error } = await sb
-    .from('blocked_users')
-    .delete()
-    .eq('user_id', userId)
-    .eq('blocked_id', blockedId);
-  return { error };
-}
-
 async function fetchBlockedUsers(userId) {
   const sb = getSupabase();
   const { data, error } = await sb
@@ -838,9 +825,188 @@ async function fetchBlockedUsers(userId) {
 
 async function getArtistProfiles() {
   const sb = getSupabase();
-  const { data, error } = await sb
+  // Fetch from both profiles (role=artist) and artists table
+  const [profilesRes, artistsRes] = await Promise.all([
+    sb.from('profiles').select('id, username, avatar_url, role').eq('role', 'artist'),
+    sb.from('artists').select('id, name, avatar_url').catch(() => ({ data: [], error: null }))
+  ]);
+  
+  const profileArtists = (profilesRes.data || []).map(p => ({
+    id: p.id,
+    name: p.username,
+    avatar_url: p.avatar_url,
+    source: 'profiles'
+  }));
+  
+  const tableArtists = (artistsRes.data || []).map(a => ({
+    id: a.id,
+    name: a.name,
+    avatar_url: a.avatar_url,
+    source: 'artists'
+  }));
+  
+  // Merge: avoid duplicates by name (case-insensitive)
+  const seen = new Set();
+  const merged = [];
+  for (const a of [...profileArtists, ...tableArtists]) {
+    const key = (a.name || '').toLowerCase();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      merged.push(a);
+    }
+  }
+  
+  return { data: merged, error: profilesRes.error };
+}
+
+async function getArtistByName(artistName) {
+  const sb = getSupabase();
+  // Try profiles first
+  const { data: profileData } = await sb
     .from('profiles')
-    .select('id, username, role')
-    .eq('role', 'artist');
-  return { data, error };
+    .select('id, username, avatar_url, bio, role')
+    .eq('role', 'artist')
+    .ilike('username', artistName)
+    .maybeSingle();
+  
+  if (profileData) {
+    return { id: profileData.id, name: profileData.username, avatar_url: profileData.avatar_url, bio: profileData.bio, source: 'profiles' };
+  }
+  
+  // Try artists table
+  const { data: artistData } = await sb
+    .from('artists')
+    .select('id, name, avatar_url')
+    .ilike('name', artistName)
+    .maybeSingle();
+  
+  if (artistData) {
+    return { id: artistData.id, name: artistData.name, avatar_url: artistData.avatar_url, bio: null, source: 'artists' };
+  }
+  
+  return null;
+}
+
+async function getSongsByArtist(artistName) {
+  const sb = getSupabase();
+  // Search for exact match or as part of multi-artist (comma separated)
+  const { data, error } = await sb
+    .from('songs')
+    .select('*')
+    .or(`artist.ilike.${artistName},artist.ilike.%${artistName}%`)
+    .order('created_at', { ascending: false });
+  return { data: data || [], error };
+}
+
+// ===== Lyrics Functions =====
+
+async function fetchLyricsFromAPI(title, artist, album, duration) {
+  try {
+    // Try exact match first with /api/get
+    if (album && duration) {
+      const params = new URLSearchParams({
+        track_name: title,
+        artist_name: artist,
+        album_name: album,
+        duration: Math.round(duration).toString()
+      });
+      const resp = await fetch(`https://lrclib.net/api/get?${params}`, {
+        headers: { 'User-Agent': 'Bekofy/1.1.0 (https://bekofy.app)' }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && (data.plainLyrics || data.syncedLyrics)) {
+          return { plainLyrics: data.plainLyrics || null, syncedLyrics: data.syncedLyrics || null };
+        }
+      }
+    }
+
+    // Fallback: search by track name and artist
+    const searchParams = new URLSearchParams({
+      track_name: title,
+      artist_name: artist
+    });
+    const searchResp = await fetch(`https://lrclib.net/api/search?${searchParams}`, {
+      headers: { 'User-Agent': 'Bekofy/1.1.0 (https://bekofy.app)' }
+    });
+    if (searchResp.ok) {
+      const results = await searchResp.json();
+      if (results && results.length > 0) {
+        // Pick best match (first result with lyrics)
+        const best = results.find(r => r.syncedLyrics || r.plainLyrics) || results[0];
+        return { plainLyrics: best.plainLyrics || null, syncedLyrics: best.syncedLyrics || null };
+      }
+    }
+
+    // Last fallback: search with just the query string
+    const qParams = new URLSearchParams({ q: `${artist} ${title}` });
+    const qResp = await fetch(`https://lrclib.net/api/search?${qParams}`, {
+      headers: { 'User-Agent': 'Bekofy/1.1.0 (https://bekofy.app)' }
+    });
+    if (qResp.ok) {
+      const qResults = await qResp.json();
+      if (qResults && qResults.length > 0) {
+        const best = qResults.find(r => r.syncedLyrics || r.plainLyrics) || qResults[0];
+        return { plainLyrics: best.plainLyrics || null, syncedLyrics: best.syncedLyrics || null };
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Lyrics API error:', err);
+    return null;
+  }
+}
+
+async function saveLyricsToDb(songId, lyrics, syncedLyrics) {
+  const sb = getSupabase();
+  try {
+    const { error } = await sb
+      .from('songs')
+      .update({ lyrics: lyrics, synced_lyrics: syncedLyrics })
+      .eq('id', songId);
+    if (error) console.error('Save lyrics error:', error);
+  } catch (err) {
+    console.error('Save lyrics exception:', err);
+  }
+}
+
+async function getLyrics(song) {
+  if (!song) return null;
+
+  // 1. Check if lyrics already cached in DB
+  if (song.lyrics || song.synced_lyrics) {
+    return { plainLyrics: song.lyrics || null, syncedLyrics: song.synced_lyrics || null };
+  }
+
+  // 2. Check DB for latest data (in case it was updated)
+  const sb = getSupabase();
+  try {
+    const { data } = await sb
+      .from('songs')
+      .select('lyrics, synced_lyrics')
+      .eq('id', song.id)
+      .single();
+    if (data && (data.lyrics || data.synced_lyrics)) {
+      return { plainLyrics: data.lyrics || null, syncedLyrics: data.synced_lyrics || null };
+    }
+  } catch (e) {
+    // Continue to API fetch
+  }
+
+  // 3. Fetch from LRCLIB API
+  const result = await fetchLyricsFromAPI(
+    song.title,
+    song.artist,
+    song.album || '',
+    song.duration || 0
+  );
+
+  // 4. Cache in DB if found
+  if (result && (result.plainLyrics || result.syncedLyrics)) {
+    await saveLyricsToDb(song.id, result.plainLyrics, result.syncedLyrics);
+    return result;
+  }
+
+  return null;
 }

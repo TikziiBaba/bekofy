@@ -129,7 +129,7 @@ async function loadArtistUsernames() {
   try {
     const { data } = await getArtistProfiles();
     if (data) {
-      artistUsernames = new Set(data.map(p => p.username?.toLowerCase()));
+      artistUsernames = new Set(data.map(p => (p.name || p.username || '').toLowerCase()));
     }
   } catch (e) {
     console.log('Artist profiles load error:', e);
@@ -407,7 +407,7 @@ function createSongCard(song) {
         </button>
       </div>
       <div class="song-card-title">${escapeHtml(song.title)}</div>
-      <div class="song-card-artist">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</div>
+      <div class="song-card-artist"><span class="artist-link" data-artist-name="${escapeHtml(song.artist)}">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</span></div>
     </div>
   `;
 }
@@ -444,7 +444,7 @@ function renderSongListItem(song, num) {
         <div class="song-list-cover">${coverHtml}</div>
         <div class="song-list-details">
           <div class="song-list-title">${escapeHtml(song.title)}</div>
-          <div class="song-list-subtitle">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</div>
+          <div class="song-list-subtitle"><span class="artist-link" data-artist-name="${escapeHtml(song.artist)}">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</span></div>
         </div>
       </div>
       <div class="song-list-album">${escapeHtml(song.album || '—')}</div>
@@ -455,6 +455,16 @@ function renderSongListItem(song, num) {
 
 // ===== Event Delegation for Song Clicks =====
 document.addEventListener('click', (e) => {
+  // Artist name click - open artist profile
+  const artistLink = e.target.closest('.artist-link[data-artist-name]');
+  if (artistLink) {
+    e.stopPropagation();
+    e.preventDefault();
+    const artistName = artistLink.dataset.artistName;
+    if (artistName) openArtistProfile(artistName);
+    return;
+  }
+  
   // Song card play button
   const playBtn = e.target.closest('[data-play-id]');
   if (playBtn) {
@@ -612,9 +622,266 @@ function initVolumeToggle() {
 }
 
 // ===== Search =====
+let searchHistoryItems = [];
+const SEARCH_HISTORY_KEY = 'bekofy_search_history';
+const MAX_SEARCH_HISTORY = 8;
+
+function loadSearchHistory() {
+  try {
+    const stored = localStorage.getItem(SEARCH_HISTORY_KEY);
+    searchHistoryItems = stored ? JSON.parse(stored) : [];
+  } catch { searchHistoryItems = []; }
+}
+
+function saveSearchHistory() {
+  try {
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(searchHistoryItems.slice(0, MAX_SEARCH_HISTORY)));
+  } catch {}
+}
+
+function addToSearchHistory(query) {
+  if (!query || query.length < 2) return;
+  // Remove duplicate
+  searchHistoryItems = searchHistoryItems.filter(h => h.toLowerCase() !== query.toLowerCase());
+  // Add to front
+  searchHistoryItems.unshift(query);
+  searchHistoryItems = searchHistoryItems.slice(0, MAX_SEARCH_HISTORY);
+  saveSearchHistory();
+}
+
+function removeFromSearchHistory(query) {
+  searchHistoryItems = searchHistoryItems.filter(h => h.toLowerCase() !== query.toLowerCase());
+  saveSearchHistory();
+  showSearchDiscovery();
+}
+
+async function showSearchDiscovery() {
+  const container = document.getElementById('search-results');
+  let html = '';
+  
+  // 1. Recent searches
+  if (searchHistoryItems.length > 0) {
+    html += `
+      <div class="search-discovery-section">
+        <div class="search-discovery-header">
+          <h2 class="section-title">🕐 Son Aramalar</h2>
+          <button class="btn-clear-history" onclick="clearSearchHistory()">Tümünü Temizle</button>
+        </div>
+        <div class="search-history-list">
+          ${searchHistoryItems.map(item => `
+            <div class="search-history-item" data-query="${escapeHtml(item)}">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" opacity="0.4"><path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+              <span class="search-history-text">${escapeHtml(item)}</span>
+              <button class="search-history-remove" data-remove="${escapeHtml(item)}" title="Kaldır">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  // 2. Popular Artists
+  try {
+    const sb = getSupabase();
+    const [artistsRes, profilesRes] = await Promise.all([
+      sb.from('artists').select('id, name, avatar_url').order('name').limit(20),
+      sb.from('profiles').select('id, username, avatar_url, role').eq('role', 'artist').order('username').limit(10)
+    ]);
+    
+    const seen = new Set();
+    const allArtistsDiscovery = [];
+    
+    for (const p of (profilesRes.data || [])) {
+      const key = (p.username || '').toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        allArtistsDiscovery.push({ name: p.username, avatar_url: p.avatar_url, source: 'profile' });
+      }
+    }
+    for (const a of (artistsRes.data || [])) {
+      const key = (a.name || '').toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        allArtistsDiscovery.push({ name: a.name, avatar_url: a.avatar_url, source: 'artist' });
+      }
+    }
+    
+    if (allArtistsDiscovery.length > 0) {
+      html += `
+        <div class="search-discovery-section">
+          <h2 class="section-title">🎤 Sanatçılar</h2>
+          <div class="discovery-artists-grid">
+            ${allArtistsDiscovery.slice(0, 12).map(a => {
+              const initials = getInitials(a.name);
+              const color = getAvatarColor(a.name);
+              const avatarHtml = a.avatar_url 
+                ? `<img src="${a.avatar_url}" alt="${escapeHtml(a.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                : '';
+              return `
+                <div class="discovery-artist-card" data-artist-name="${escapeHtml(a.name)}">
+                  <div class="discovery-artist-avatar">
+                    ${avatarHtml}
+                    <div class="discovery-artist-avatar-fallback" ${a.avatar_url ? 'style="display:none"' : ''} style="background:${color}">${initials}</div>
+                  </div>
+                  <div class="discovery-artist-name">${escapeHtml(a.name)}${getVerifiedTick(a.name)}</div>
+                  <div class="discovery-artist-role">Sanatçı</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.log('Discovery artists error:', err);
+  }
+  
+  // 3. Trending / Popular songs (based on likes or recent)
+  if (allSongs.length > 0) {
+    // Show recently added songs
+    const recentSongs = [...allSongs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8);
+    
+    if (recentSongs.length > 0) {
+      html += `
+        <div class="search-discovery-section">
+          <h2 class="section-title">🔥 Popüler</h2>
+          <div class="discovery-songs-list">
+            ${recentSongs.map((song, i) => {
+              const coverHtml = song.cover_url 
+                ? `<img src="${song.cover_url}" alt="" onerror="this.style.display='none'">` 
+                : `<svg viewBox="0 0 24 24" fill="currentColor" opacity="0.3"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+              return `
+                <div class="discovery-song-item" data-song-id="${song.id}">
+                  <div class="discovery-song-rank">${i + 1}</div>
+                  <div class="discovery-song-cover">${coverHtml}</div>
+                  <div class="discovery-song-info">
+                    <div class="discovery-song-title">${escapeHtml(song.title)}</div>
+                    <div class="discovery-song-artist">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    // Browse by genre/mood categories
+    const categories = [
+      { emoji: '🎵', label: 'Tüm Şarkılar', color: '#1DB954' },
+      { emoji: '❤️', label: 'Beğenilenler', color: '#e74c3c' },
+      { emoji: '🆕', label: 'Yeni Eklenenler', color: '#9b59b6' },
+      { emoji: '🎲', label: 'Rastgele Keşfet', color: '#e67e22' },
+    ];
+    
+    html += `
+      <div class="search-discovery-section">
+        <h2 class="section-title">📂 Göz At</h2>
+        <div class="discovery-categories-grid">
+          ${categories.map(cat => `
+            <div class="discovery-category-card" data-category="${cat.label}" style="background:linear-gradient(135deg, ${cat.color}22, ${cat.color}08);border-color:${cat.color}33">
+              <span class="discovery-category-emoji">${cat.emoji}</span>
+              <span class="discovery-category-label">${cat.label}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  if (!html) {
+    html = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="64" height="64" opacity="0.2"><path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 101.414-1.414l-4.344-4.344a9.157 9.157 0 002.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/></svg>
+        <p>Dinlemek istediğin şarkıyı ara</p>
+      </div>
+    `;
+  }
+  
+  container.innerHTML = html;
+  
+  // Bind discovery events
+  bindDiscoveryEvents();
+}
+
+function bindDiscoveryEvents() {
+  const container = document.getElementById('search-results');
+  
+  // Search history items - click to search
+  container.querySelectorAll('.search-history-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.search-history-remove')) return;
+      const query = item.dataset.query;
+      document.getElementById('search-input').value = query;
+      document.getElementById('search-input').dispatchEvent(new Event('input'));
+    });
+  });
+  
+  // Search history remove buttons
+  container.querySelectorAll('.search-history-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeFromSearchHistory(btn.dataset.remove);
+    });
+  });
+  
+  // Artist cards - click to view profile
+  container.querySelectorAll('.discovery-artist-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const artistName = card.dataset.artistName;
+      if (artistName) openArtistProfile(artistName);
+    });
+  });
+  
+  // Song items - click to play
+  container.querySelectorAll('.discovery-song-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const songId = item.dataset.songId;
+      if (songId) playSongFromAny(songId);
+    });
+  });
+  
+  // Category cards
+  container.querySelectorAll('.discovery-category-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const cat = card.dataset.category;
+      if (cat === 'Tüm Şarkılar') {
+        searchResultSongs = [...allSongs];
+        renderSearchResults(allSongs, 'Tüm Şarkılar');
+      } else if (cat === 'Beğenilenler') {
+        const liked = allSongs.filter(s => userLikedSongIds.has(s.id));
+        searchResultSongs = liked;
+        renderSearchResults(liked, 'Beğenilen Şarkılar');
+      } else if (cat === 'Yeni Eklenenler') {
+        const recent = [...allSongs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 30);
+        searchResultSongs = recent;
+        renderSearchResults(recent, 'Yeni Eklenenler');
+      } else if (cat === 'Rastgele Keşfet') {
+        const shuffled = [...allSongs].sort(() => Math.random() - 0.5).slice(0, 20);
+        searchResultSongs = shuffled;
+        renderSearchResults(shuffled, 'Rastgele Keşfet');
+      }
+    });
+  });
+}
+
+window.clearSearchHistory = function() {
+  searchHistoryItems = [];
+  saveSearchHistory();
+  showSearchDiscovery();
+};
+
 function initSearch() {
   const searchInput = document.getElementById('search-input');
   let debounceTimer;
+  
+  // Load search history
+  loadSearchHistory();
+  
+  // Show discovery content initially
+  showSearchDiscovery();
 
   searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
@@ -622,11 +889,7 @@ function initSearch() {
       const query = searchInput.value.trim();
       if (query.length < 1) {
         searchResultSongs = [];
-        document.getElementById('search-results').innerHTML = `
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="64" height="64" opacity="0.2"><path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 101.414-1.414l-4.344-4.344a9.157 9.157 0 002.077-5.816c0-5.14-4.226-9.28-9.407-9.28zm-7.407 9.279c0-4.006 3.302-7.28 7.407-7.28s7.407 3.274 7.407 7.28-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.28z"/></svg>
-            <p>Dinlemek istediğin şarkıyı ara</p>
-          </div>`;
+        showSearchDiscovery();
         return;
       }
 
@@ -644,6 +907,9 @@ function initSearch() {
 
       // Sonra Supabase'den ara (daha kapsamlı)
       if (query.length >= 2) {
+        // Save to search history
+        addToSearchHistory(query);
+        
         try {
           const [songsResult, playlistsResult, usersResult] = await Promise.all([
             searchSongs(query),
@@ -709,10 +975,25 @@ function initSearch() {
     // 2. Check for User Card click
     const card = e.target.closest('.user-search-card');
     if (card) {
-      const userId = card.dataset.userId;
-      if (userId) {
-        loadPublicUserProfile(userId);
+      // Prevent click if we clicked the add friend or view artist button directly
+      if (e.target.closest('.btn-add-friend') || e.target.closest('.btn-view-artist')) return;
+      
+      const role = card.dataset.userRole;
+      if (role === 'artist') {
+        const artistName = card.dataset.userName;
+        if (artistName) openArtistProfile(artistName);
+      } else {
+        const userId = card.dataset.userId;
+        if (userId) loadPublicUserProfile(userId);
       }
+    }
+    
+    // 3. View Artist Button Focus
+    const viewArtistBtn = e.target.closest('.btn-view-artist');
+    if (viewArtistBtn) {
+      e.stopPropagation();
+      const artistName = viewArtistBtn.dataset.artistName;
+      if (artistName) openArtistProfile(artistName);
     }
   });
 }
@@ -731,10 +1012,13 @@ function renderSearchResults(songs, query, playlists = [], users = []) {
             ? `<img src="${u.avatar_url}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;">` 
             : `<span style="width:50px;height:50px;border-radius:50%;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-weight:bold;color:var(--ts)">${getInitials(u.username)}</span>`;
           return `
-          <div class="user-search-card" data-user-id="${u.id}" style="background:var(--bg-card);padding:12px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:140px;border:1px solid var(--border)">
+          <div class="user-search-card" data-user-id="${u.id}" data-user-role="${u.role}" data-user-name="${escapeHtml(u.username)}" style="background:var(--bg-card);padding:12px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:140px;border:1px solid var(--border)">
             ${avatarHtml}
-            <div style="font-weight:600;margin-top:8px">${escapeHtml(u.username)}${u.role === 'artist' ? getVerifiedTick() : ''}</div>
-            <button class="btn-primary-small btn-add-friend" data-user-id="${u.id}" style="margin-top:12px;width:100%;padding:6px">Arkadaş Ekle</button>
+            <div style="font-weight:600;margin-top:8px">${escapeHtml(u.username)}${u.role === 'artist' ? getVerifiedTick(u.username) : ''}</div>
+            ${u.role === 'artist' 
+              ? `<button class="btn-primary-small btn-view-artist" data-artist-name="${escapeHtml(u.username)}" style="margin-top:12px;width:100%;padding:6px;background:var(--bg-card-hover);border:1px solid var(--border);color:var(--tp)">Profili Gör</button>`
+              : `<button class="btn-primary-small btn-add-friend" data-user-id="${u.id}" style="margin-top:12px;width:100%;padding:6px">Arkadaş Ekle</button>`
+            }
           </div>`;
         }).join('')}
       </div>
@@ -2591,5 +2875,716 @@ loadUserInfo = async function() {
         nameEl.appendChild(tickSpan);
       }
     }
+  }
+}
+
+// ===== Now Playing Detail Overlay =====
+let npOverlayOpen = false;
+
+function initNowPlayingOverlay() {
+  const overlay = document.getElementById('now-playing-overlay');
+  const closeBtn = document.getElementById('np-close-btn');
+  const npCover = document.getElementById('now-playing-cover');
+  const npInfo = document.querySelector('.now-playing-info');
+
+  // Open overlay when clicking cover or song info in player bar
+  if (npCover) {
+    npCover.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (player.getCurrentSong()) openNowPlayingOverlay();
+    });
+  }
+  if (npInfo) {
+    npInfo.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (player.getCurrentSong()) openNowPlayingOverlay();
+    });
+  }
+
+  // Close button
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => closeNowPlayingOverlay());
+  }
+
+  // Close on ESC
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && npOverlayOpen) {
+      closeNowPlayingOverlay();
+    }
+  });
+
+  // Overlay player controls
+  document.getElementById('np-play')?.addEventListener('click', () => player.togglePlay());
+  document.getElementById('np-next')?.addEventListener('click', () => {
+    player.next();
+    setTimeout(() => updateNowPlayingOverlay(), 300);
+  });
+  document.getElementById('np-prev')?.addEventListener('click', () => {
+    player.previous();
+    setTimeout(() => updateNowPlayingOverlay(), 300);
+  });
+  document.getElementById('np-shuffle')?.addEventListener('click', () => {
+    player.toggleShuffle();
+    document.getElementById('np-shuffle')?.classList.toggle('active', player.isShuffle);
+  });
+  document.getElementById('np-repeat')?.addEventListener('click', () => {
+    player.toggleRepeat();
+    document.getElementById('np-repeat')?.classList.toggle('active', player.repeatMode !== 'none');
+  });
+
+  // Overlay progress bar click & drag
+  const npProgressBar = document.getElementById('np-progress-bar');
+  let npDragging = false;
+
+  const npSeek = (e) => {
+    const rect = npProgressBar.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    player.seek(percent);
+  };
+
+  npProgressBar?.addEventListener('mousedown', (e) => {
+    npDragging = true;
+    npSeek(e);
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (npDragging) npSeek(e);
+  });
+  document.addEventListener('mouseup', () => { npDragging = false; });
+
+  // Like button in overlay
+  document.getElementById('np-like-btn')?.addEventListener('click', async () => {
+    const currentSong = player.getCurrentSong();
+    if (!currentSong || !currentUserId) return;
+    await toggleLikeSong(currentSong.id);
+    syncNowPlayingLikeState();
+  });
+
+  // Song clicks in overlay's "more songs" list
+  document.getElementById('np-songs-list')?.addEventListener('click', (e) => {
+    const songItem = e.target.closest('.np-song-item[data-song-id]');
+    if (songItem) {
+      playSongFromAny(songItem.dataset.songId);
+      setTimeout(() => updateNowPlayingOverlay(), 300);
+    }
+  });
+
+  // Sync overlay progress bar with audio timeupdate
+  setupOverlaySync();
+}
+
+function openNowPlayingOverlay() {
+  const overlay = document.getElementById('now-playing-overlay');
+  if (!overlay) return;
+  npOverlayOpen = true;
+  overlay.classList.add('open');
+  updateNowPlayingOverlay();
+
+  // Scroll to top
+  const scroll = document.getElementById('np-scroll');
+  if (scroll) scroll.scrollTop = 0;
+}
+
+function closeNowPlayingOverlay() {
+  const overlay = document.getElementById('now-playing-overlay');
+  if (!overlay) return;
+  npOverlayOpen = false;
+  overlay.classList.remove('open');
+}
+
+function updateNowPlayingOverlay() {
+  const song = player.getCurrentSong();
+  if (!song) return;
+
+  // Cover art
+  const coverEl = document.getElementById('np-cover-art');
+  if (song.cover_url) {
+    coverEl.innerHTML = `<img src="${song.cover_url}" alt="${escapeHtml(song.title)}">`;
+    // Dynamic background gradient based on cover
+    coverEl.style.background = 'none';
+  } else {
+    coverEl.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" opacity="0.2" width="80" height="80"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+    coverEl.style.background = 'linear-gradient(135deg,#1a1a2e,#16213e)';
+  }
+
+  // Song info
+  document.getElementById('np-song-title').textContent = song.title;
+  document.getElementById('np-song-artist').innerHTML = escapeHtml(song.artist) + getVerifiedTick(song.artist);
+
+  // Sync play/pause state
+  syncNowPlayingPlayState();
+
+  // Sync shuffle/repeat state
+  document.getElementById('np-shuffle')?.classList.toggle('active', player.isShuffle);
+  document.getElementById('np-repeat')?.classList.toggle('active', player.repeatMode !== 'none');
+
+  // Sync like state
+  syncNowPlayingLikeState();
+
+  // Load artist info
+  loadNowPlayingArtistInfo(song.artist);
+
+  // Load more songs by artist
+  loadNowPlayingMoreSongs(song);
+
+  // Load credits
+  loadNowPlayingCredits(song);
+
+  // Load lyrics
+  loadNowPlayingLyrics(song);
+}
+
+// ===== Lyrics System =====
+let currentLyricsData = null;
+let parsedSyncedLyrics = [];
+let currentActiveLyricIndex = -1;
+let lyricsCollapsed = false;
+let lastLyricsSongId = null;
+
+function parseLRC(lrcText) {
+  if (!lrcText) return [];
+  const lines = lrcText.split('\n');
+  const parsed = [];
+  const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/g;
+
+  for (const line of lines) {
+    const times = [];
+    let match;
+    while ((match = timeRegex.exec(line)) !== null) {
+      const minutes = parseInt(match[1]);
+      const seconds = parseInt(match[2]);
+      const ms = match[3].length === 2 ? parseInt(match[3]) * 10 : parseInt(match[3]);
+      times.push(minutes * 60 + seconds + ms / 1000);
+    }
+
+    const text = line.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '').trim();
+
+    for (const time of times) {
+      parsed.push({ time, text });
+    }
+  }
+
+  // Sort by time
+  parsed.sort((a, b) => a.time - b.time);
+  return parsed;
+}
+
+async function loadNowPlayingLyrics(song) {
+  if (!song) return;
+
+  // Don't reload if same song
+  if (lastLyricsSongId === song.id && currentLyricsData !== undefined) return;
+  lastLyricsSongId = song.id;
+
+  const loadingEl = document.getElementById('np-lyrics-loading');
+  const contentEl = document.getElementById('np-lyrics-content');
+  const notFoundEl = document.getElementById('np-lyrics-not-found');
+
+  if (!loadingEl || !contentEl || !notFoundEl) return;
+
+  // Show loading
+  loadingEl.style.display = 'flex';
+  contentEl.style.display = 'none';
+  notFoundEl.style.display = 'none';
+  currentLyricsData = null;
+  parsedSyncedLyrics = [];
+  currentActiveLyricIndex = -1;
+
+  try {
+    const result = await getLyrics(song);
+
+    loadingEl.style.display = 'none';
+
+    if (!result || (!result.plainLyrics && !result.syncedLyrics)) {
+      // No lyrics found
+      notFoundEl.style.display = 'flex';
+      currentLyricsData = null;
+      return;
+    }
+
+    currentLyricsData = result;
+
+    // Render lyrics
+    if (result.syncedLyrics) {
+      // Parse and render synced lyrics
+      parsedSyncedLyrics = parseLRC(result.syncedLyrics);
+      renderSyncedLyrics(parsedSyncedLyrics);
+    } else if (result.plainLyrics) {
+      // Render plain text
+      renderPlainLyrics(result.plainLyrics);
+    }
+
+    contentEl.style.display = 'block';
+  } catch (err) {
+    console.error('Lyrics load error:', err);
+    loadingEl.style.display = 'none';
+    notFoundEl.style.display = 'flex';
+  }
+}
+
+function renderSyncedLyrics(lines) {
+  const contentEl = document.getElementById('np-lyrics-content');
+  if (!contentEl) return;
+
+  const html = `<div class="np-lyrics-synced">
+    ${lines.map((line, i) => {
+      const text = line.text || '';
+      const isInstrumental = text === '' || text === '♪' || text === '♫';
+      return `<div class="np-lyric-line${isInstrumental ? ' instrumental' : ''}" data-lyric-index="${i}" data-lyric-time="${line.time}">
+        ${isInstrumental ? '♪ ♪ ♪' : escapeHtml(text)}
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  contentEl.innerHTML = html;
+
+  // Click to seek
+  contentEl.querySelectorAll('.np-lyric-line').forEach(el => {
+    el.addEventListener('click', () => {
+      const time = parseFloat(el.dataset.lyricTime);
+      if (!isNaN(time) && player.audio.duration) {
+        player.audio.currentTime = time;
+        if (!player.isPlaying) {
+          player.audio.play();
+          player.isPlaying = true;
+          player.updatePlayButton();
+        }
+      }
+    });
+  });
+}
+
+function renderPlainLyrics(text) {
+  const contentEl = document.getElementById('np-lyrics-content');
+  if (!contentEl) return;
+  contentEl.innerHTML = `<div class="np-lyrics-plain">${escapeHtml(text)}</div>`;
+}
+
+function updateSyncedLyricsHighlight(currentTime) {
+  if (!parsedSyncedLyrics || parsedSyncedLyrics.length === 0) return;
+
+  // Find active line
+  let activeIdx = -1;
+  for (let i = parsedSyncedLyrics.length - 1; i >= 0; i--) {
+    if (currentTime >= parsedSyncedLyrics[i].time) {
+      activeIdx = i;
+      break;
+    }
+  }
+
+  if (activeIdx === currentActiveLyricIndex) return;
+  currentActiveLyricIndex = activeIdx;
+
+  const container = document.getElementById('np-lyrics-container');
+  const lines = document.querySelectorAll('.np-lyric-line');
+  if (!lines.length) return;
+
+  lines.forEach((el, i) => {
+    el.classList.remove('active', 'past');
+    if (i === activeIdx) {
+      el.classList.add('active');
+    } else if (i < activeIdx) {
+      el.classList.add('past');
+    }
+  });
+
+  // Auto-scroll active line to center
+  if (activeIdx >= 0 && lines[activeIdx] && container) {
+    const lineEl = lines[activeIdx];
+    const containerRect = container.getBoundingClientRect();
+    const lineRect = lineEl.getBoundingClientRect();
+    const offset = lineRect.top - containerRect.top - containerRect.height / 2 + lineRect.height / 2;
+    container.scrollTop += offset;
+  }
+}
+
+function initLyricsToggle() {
+  const toggleBtn = document.getElementById('np-lyrics-toggle');
+  const container = document.getElementById('np-lyrics-container');
+  if (!toggleBtn || !container) return;
+
+  toggleBtn.addEventListener('click', () => {
+    lyricsCollapsed = !lyricsCollapsed;
+    container.classList.toggle('collapsed', lyricsCollapsed);
+    toggleBtn.classList.toggle('collapsed', lyricsCollapsed);
+  });
+}
+
+function syncNowPlayingPlayState() {
+  const playIcon = document.getElementById('np-icon-play');
+  const pauseIcon = document.getElementById('np-icon-pause');
+  if (player.isPlaying) {
+    playIcon.style.display = 'none';
+    pauseIcon.style.display = 'block';
+  } else {
+    playIcon.style.display = 'block';
+    pauseIcon.style.display = 'none';
+  }
+}
+
+function syncNowPlayingLikeState() {
+  const song = player.getCurrentSong();
+  const npLikeBtn = document.getElementById('np-like-btn');
+  if (!npLikeBtn || !song) return;
+  npLikeBtn.classList.toggle('liked', userLikedSongIds.has(song.id));
+}
+
+function setupOverlaySync() {
+  // Override the player's onTimeUpdate to also update overlay
+  const originalOnTimeUpdate = player.onTimeUpdate.bind(player);
+  player.onTimeUpdate = function() {
+    originalOnTimeUpdate();
+
+    const { currentTime, duration } = this.audio;
+    if (!duration) return;
+
+    // Always update synced lyrics highlight so it's ready when opened
+    if (parsedSyncedLyrics && parsedSyncedLyrics.length > 0) {
+      updateSyncedLyricsHighlight(currentTime);
+    }
+
+    if (!npOverlayOpen) return;
+
+    const percent = (currentTime / duration) * 100;
+
+    const fill = document.getElementById('np-progress-fill');
+    const knob = document.getElementById('np-progress-knob');
+    const timeCurrent = document.getElementById('np-time-current');
+
+    if (fill) fill.style.width = percent + '%';
+    if (knob) knob.style.left = percent + '%';
+    if (timeCurrent) timeCurrent.textContent = this.formatTime(currentTime);
+  };
+
+
+  // Override onLoaded to sync total time
+  const originalOnLoaded = player.onLoaded.bind(player);
+  player.onLoaded = function() {
+    originalOnLoaded();
+    const timeTotal = document.getElementById('np-time-total');
+    if (timeTotal) timeTotal.textContent = this.formatTime(this.audio.duration);
+  };
+
+  // Override updatePlayButton to sync overlay
+  const originalUpdatePlayButton = player.updatePlayButton.bind(player);
+  player.updatePlayButton = function() {
+    originalUpdatePlayButton();
+    if (npOverlayOpen) syncNowPlayingPlayState();
+  };
+
+  // Override updateUI to refresh overlay when song changes
+  const originalUpdateUI = player.updateUI.bind(player);
+  player.updateUI = function(song) {
+    originalUpdateUI(song);
+    // Reset lyrics for new song
+    lastLyricsSongId = null;
+    currentLyricsData = undefined;
+    parsedSyncedLyrics = [];
+    currentActiveLyricIndex = -1;
+    if (npOverlayOpen) {
+      setTimeout(() => updateNowPlayingOverlay(), 100);
+    }
+  };
+}
+
+async function loadNowPlayingArtistInfo(artistName) {
+  const section = document.getElementById('np-artist-section');
+  const nameEl = document.getElementById('np-artist-name');
+  const bioEl = document.getElementById('np-artist-bio');
+  const avatarEl = document.getElementById('np-artist-avatar');
+  const statsEl = document.getElementById('np-artist-stats');
+  const songCountEl = document.getElementById('np-artist-song-count');
+
+  if (!section || !artistName) return;
+
+  // For multi-artist, use the first artist name for the main display
+  const primaryArtist = artistName.includes(',') ? artistName.split(',')[0].trim() : artistName;
+
+  // Set artist name
+  nameEl.innerHTML = escapeHtml(primaryArtist) + getVerifiedTick(primaryArtist);
+
+  // Count songs by this artist
+  const artistSongs = allSongs.filter(s => s.artist?.toLowerCase().includes(primaryArtist.toLowerCase()));
+  songCountEl.textContent = `${artistSongs.length} şarkı platformda`;
+
+  // Try to find artist profile - check BOTH profiles AND artists table
+  try {
+    const sb = getSupabase();
+    
+    // 1. Check profiles table first
+    const { data: profiles } = await sb
+      .from('profiles')
+      .select('id, username, avatar_url, bio, role')
+      .ilike('username', primaryArtist)
+      .limit(1);
+
+    // 2. Also check artists table
+    let artistTableData = null;
+    try {
+      const { data: artistRes } = await sb
+        .from('artists')
+        .select('id, name, avatar_url')
+        .ilike('name', primaryArtist)
+        .maybeSingle();
+      artistTableData = artistRes;
+    } catch (e) {
+      console.log('Artist table lookup error:', e);
+    }
+
+    if (profiles && profiles.length > 0) {
+      const profile = profiles[0];
+
+      // Avatar: prefer profile avatar, fallback to artists table avatar
+      const avatarUrl = profile.avatar_url || (artistTableData && artistTableData.avatar_url);
+      if (avatarUrl) {
+        avatarEl.innerHTML = `<img src="${avatarUrl}" alt="${escapeHtml(primaryArtist)}">`;
+      } else {
+        const initials = getInitials(primaryArtist);
+        const color = getAvatarColor(primaryArtist);
+        avatarEl.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff">${initials}</div>`;
+      }
+
+      // Bio
+      if (profile.bio) {
+        bioEl.textContent = profile.bio;
+        bioEl.style.display = 'block';
+      } else {
+        bioEl.textContent = `${primaryArtist} Bekofy'da müzik paylaşıyor.`;
+        bioEl.style.display = 'block';
+      }
+
+      // Followers count
+      const { count: followersCount } = await sb
+        .from('friendships')
+        .select('*', { count: 'exact', head: true })
+        .eq('friend_id', profile.id)
+        .eq('status', 'accepted');
+
+      if (followersCount > 0) {
+        songCountEl.textContent = `${artistSongs.length} şarkı · ${followersCount} takipçi`;
+      }
+    } else if (artistTableData) {
+      // Found in artists table but not in profiles
+      if (artistTableData.avatar_url) {
+        avatarEl.innerHTML = `<img src="${artistTableData.avatar_url}" alt="${escapeHtml(primaryArtist)}">`;
+      } else {
+        const initials = getInitials(primaryArtist);
+        const color = getAvatarColor(primaryArtist);
+        avatarEl.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff">${initials}</div>`;
+      }
+      bioEl.textContent = `${primaryArtist} Bekofy'da müzik paylaşıyor.`;
+      bioEl.style.display = 'block';
+    } else {
+      // No profile found - show defaults
+      const initials = getInitials(primaryArtist);
+      const color = getAvatarColor(primaryArtist);
+      avatarEl.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff">${initials}</div>`;
+      bioEl.textContent = `${primaryArtist} Bekofy'da müzik paylaşıyor.`;
+      bioEl.style.display = 'block';
+    }
+  } catch (err) {
+    console.log('Artist info load error:', err);
+    const initials = getInitials(primaryArtist);
+    const color = getAvatarColor(primaryArtist);
+    avatarEl.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff">${initials}</div>`;
+    bioEl.textContent = `${primaryArtist} Bekofy'da müzik paylaşıyor.`;
+    bioEl.style.display = 'block';
+  }
+}
+
+function loadNowPlayingMoreSongs(currentSong) {
+  const container = document.getElementById('np-songs-list');
+  const titleEl = document.getElementById('np-more-songs-title');
+  const section = document.getElementById('np-more-songs');
+  if (!container || !currentSong) return;
+
+  const moreSongs = allSongs.filter(s =>
+    s.artist?.toLowerCase() === currentSong.artist?.toLowerCase() &&
+    s.id !== currentSong.id
+  );
+
+  if (moreSongs.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  titleEl.textContent = `${escapeHtml(currentSong.artist)} - Diğer Şarkılar`;
+
+  container.innerHTML = moreSongs.slice(0, 10).map(song => {
+    const coverHtml = song.cover_url
+      ? `<img src="${song.cover_url}" alt="">`
+      : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+
+    return `
+      <div class="np-song-item" data-song-id="${song.id}">
+        <div class="np-song-item-cover">${coverHtml}</div>
+        <div class="np-song-item-info">
+          <div class="np-song-item-title">${escapeHtml(song.title)}</div>
+          <div class="np-song-item-album">${escapeHtml(song.album || currentSong.artist)}</div>
+        </div>
+        <span class="np-song-item-duration">${formatDuration(song.duration)}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function loadNowPlayingCredits(song) {
+  const container = document.getElementById('np-credits-list');
+  const section = document.getElementById('np-credits');
+  if (!container || !song) return;
+
+  // Build credits from available data
+  const credits = [];
+
+  // Parse multi-artist (comma-separated)
+  const artistNames = song.artist ? song.artist.split(',').map(a => a.trim()).filter(Boolean) : [];
+  
+  artistNames.forEach((name, idx) => {
+    credits.push({
+      name: name,
+      role: idx === 0 ? 'Ana Sanatçı' : 'İşbirliği',
+      isArtist: true
+    });
+  });
+
+  // If album exists, show album info
+  if (song.album) {
+    credits.push({
+      name: song.album,
+      role: 'Albüm',
+      isAlbum: true
+    });
+  }
+
+  section.style.display = credits.length > 0 ? 'block' : 'none';
+
+  container.innerHTML = credits.map(credit => {
+    let avatarHtml;
+    if (credit.isArtist) {
+      const initials = getInitials(credit.name);
+      const color = getAvatarColor(credit.name);
+      avatarHtml = `<div style="width:100%;height:100%;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff">${initials}</div>`;
+    } else if (credit.isAlbum) {
+      avatarHtml = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" style="color:var(--tm)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>`;
+    } else {
+      avatarHtml = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" style="color:var(--tm)"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
+    }
+
+    return `
+      <div class="np-credit-item">
+        <div class="np-credit-avatar">${avatarHtml}</div>
+        <div class="np-credit-info">
+          <div class="np-credit-name">${escapeHtml(credit.name)}${credit.isArtist ? getVerifiedTick(credit.name) : ''}</div>
+          <div class="np-credit-role">${credit.role}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Initialize on DOMContentLoaded (append to existing init)
+document.addEventListener('DOMContentLoaded', () => {
+  // Delay slightly so player is ready
+  setTimeout(() => {
+    initNowPlayingOverlay();
+    initLyricsToggle();
+  }, 200);
+});
+
+// ===== Artist Profile Page =====
+let currentArtistProfileSongs = [];
+
+async function openArtistProfile(artistName) {
+  if (!artistName) return;
+  
+  // Navigate to artist profile page
+  currentPage = 'artist-profile';
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  const pageEl = document.getElementById('page-artist-profile');
+  if (pageEl) {
+    pageEl.classList.add('active');
+    pageEl.style.animation = 'none';
+    pageEl.offsetHeight;
+    pageEl.style.animation = 'fadeIn 0.3s ease';
+  }
+  const main = document.getElementById('main-content');
+  if (main) main.scrollTop = 0;
+  
+  // Show loading
+  document.getElementById('artist-profile-name').textContent = artistName;
+  document.getElementById('artist-profile-song-count').textContent = 'Yükleniyor...';
+  document.getElementById('artist-profile-songs').innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Yükleniyor...</p></div>';
+  
+  try {
+    // Get artist info
+    const artist = await getArtistByName(artistName);
+    
+    // Set avatar
+    const avatarEl = document.getElementById('artist-profile-avatar');
+    if (artist && artist.avatar_url) {
+      avatarEl.innerHTML = `<img src="${artist.avatar_url}" alt="${escapeHtml(artistName)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    } else {
+      const initials = getInitials(artistName);
+      const color = getAvatarColor(artistName);
+      avatarEl.innerHTML = `<span style="font-size:60px;font-weight:700;color:#fff;background:${color};width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center">${initials}</span>`;
+    }
+    
+    // Set name with verified tick
+    document.getElementById('artist-profile-name').innerHTML = `${escapeHtml(artistName)}${getVerifiedTick(artistName)}`;
+    
+    // Get songs
+    const { data: songs } = await getSongsByArtist(artistName);
+    currentArtistProfileSongs = songs || [];
+    
+    document.getElementById('artist-profile-song-count').textContent = `${currentArtistProfileSongs.length} Şarkı`;
+    
+    // Render songs
+    const songsContainer = document.getElementById('artist-profile-songs');
+    if (currentArtistProfileSongs.length === 0) {
+      songsContainer.innerHTML = `<div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48" opacity="0.2"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        <p>Bu sanatçıya ait şarkı bulunamadı</p>
+      </div>`;
+    } else {
+      songsContainer.innerHTML = `
+        <div class="song-list-header">
+          <span>#</span>
+          <span>Başlık</span>
+          <span>Albüm</span>
+          <span>Süre</span>
+        </div>
+        ${currentArtistProfileSongs.map((song, i) => {
+          const coverHtml = song.cover_url 
+            ? `<img src="${song.cover_url}" alt="" onerror="this.style.display='none'">` 
+            : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+          return `
+            <div class="song-list-item" data-song-id="${song.id}">
+              <div class="song-list-num">${i + 1}</div>
+              <div class="song-list-info">
+                <div class="song-list-cover">${coverHtml}</div>
+                <div class="song-list-details">
+                  <div class="song-list-title">${escapeHtml(song.title)}</div>
+                  <div class="song-list-subtitle">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</div>
+                </div>
+              </div>
+              <div class="song-list-album">${escapeHtml(song.album || '—')}</div>
+              <div class="song-list-duration">${formatDuration(song.duration)}</div>
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+    
+    // Play all button
+    document.getElementById('btn-artist-play-all').onclick = () => {
+      if (currentArtistProfileSongs.length > 0) {
+        player.playSong(currentArtistProfileSongs[0], currentArtistProfileSongs);
+      }
+    };
+    
+  } catch (err) {
+    console.error('Artist profile error:', err);
+    document.getElementById('artist-profile-songs').innerHTML = `<div class="empty-state"><p>Yüklenirken hata oluştu</p></div>`;
   }
 }

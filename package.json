@@ -1,10 +1,12 @@
 {
   "name": "bekofy",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "Bekofy - Spotify benzeri masaüstü müzik uygulaması",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "concurrently --names \"electron,website\" --prefix-colors \"cyan,green\" \"electron .\" \"serve website -l 3333\"",
+    "start:electron": "electron .",
+    "start:website": "serve website -l 3333",
     "build": "electron-builder --win",
     "dev": "electron . --dev"
   },
@@ -17,7 +19,9 @@
     "electron-updater": "^6.8.3"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "electron": "^41.0.4",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "serve": "^14.2.6"
   }
 }

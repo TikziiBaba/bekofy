@@ -464,6 +464,35 @@
           </div>
         </section>
       </div>
+
+      <!-- Artist Profile Page -->
+      <div class="page" id="page-artist-profile">
+        <div class="user-profile-banner" id="artist-profile-banner">
+          <div class="user-profile-gradient" style="background:linear-gradient(180deg, #1DB954 0%, var(--bg) 100%)"></div>
+          <div class="user-profile-content">
+            <div class="user-profile-avatar" id="artist-profile-avatar"></div>
+            <div class="user-profile-info">
+              <span class="user-profile-label">SANATÇI</span>
+              <h1 class="user-profile-title" id="artist-profile-name">Sanatçı</h1>
+              <div class="user-profile-stats">
+                <span id="artist-profile-song-count">0 Şarkı</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section class="section" style="margin-top:24px">
+          <div class="playlist-detail-actions" style="margin-bottom:20px">
+            <button class="btn-play-large" id="btn-artist-play-all" title="Tümünü Oynat">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+          <h2 class="section-title">Şarkılar</h2>
+          <div class="songs-list" id="artist-profile-songs">
+            <div class="loading-state"><div class="spinner"></div><p>Yükleniyor...</p></div>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -631,6 +660,133 @@
     <div class="context-menu-item" id="pctx-delete" style="color:#f44">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
       <span>Çalma Listesini Sil</span>
+    </div>
+  </div>
+
+  <!-- Now Playing Detail Overlay -->
+  <div class="now-playing-overlay" id="now-playing-overlay">
+    <div class="now-playing-overlay-header">
+      <button class="np-close-btn" id="np-close-btn" title="Kapat">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </button>
+      <span class="np-header-title" id="np-header-title">Şimdi Çalıyor</span>
+      <button class="np-more-btn" id="np-more-btn" title="Daha Fazla">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+      </button>
+    </div>
+
+    <div class="now-playing-overlay-scroll" id="np-scroll">
+      <!-- Cover Art Section -->
+      <div class="np-cover-section">
+        <div class="np-cover-art" id="np-cover-art">
+          <svg viewBox="0 0 24 24" fill="currentColor" opacity="0.2" width="80" height="80"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        </div>
+      </div>
+
+      <!-- Song Info -->
+      <div class="np-song-info">
+        <div class="np-song-details">
+          <h1 class="np-song-title" id="np-song-title">Şarkı Adı</h1>
+          <p class="np-song-artist" id="np-song-artist">Sanatçı</p>
+        </div>
+        <button class="np-like-btn" id="np-like-btn" title="Beğen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </button>
+      </div>
+
+      <!-- Player Controls (duplicate for overlay) -->
+      <div class="np-controls">
+        <div class="np-progress-wrapper">
+          <div class="np-progress-bar" id="np-progress-bar">
+            <div class="np-progress-fill" id="np-progress-fill"></div>
+            <div class="np-progress-knob" id="np-progress-knob"></div>
+          </div>
+          <div class="np-time-row">
+            <span class="np-time" id="np-time-current">0:00</span>
+            <span class="np-time" id="np-time-total">0:00</span>
+          </div>
+        </div>
+        <div class="np-control-buttons">
+          <button class="np-ctrl-btn" id="np-shuffle" title="Karıştır">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+          </button>
+          <button class="np-ctrl-btn np-ctrl-lg" id="np-prev" title="Önceki">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button class="np-play-btn" id="np-play" title="Oynat/Duraklat">
+            <svg viewBox="0 0 24 24" fill="currentColor" id="np-icon-play"><path d="M8 5v14l11-7z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor" id="np-icon-pause" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          <button class="np-ctrl-btn np-ctrl-lg" id="np-next" title="Sonraki">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+          <button class="np-ctrl-btn" id="np-repeat" title="Tekrarla">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="np-divider"></div>
+
+      <!-- Lyrics Section -->
+      <div class="np-lyrics-section" id="np-lyrics-section">
+        <div class="np-lyrics-header">
+          <h3 class="np-section-title">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" style="margin-right:8px;vertical-align:middle;color:var(--green)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            Şarkı Sözleri
+          </h3>
+          <button class="np-lyrics-toggle" id="np-lyrics-toggle" title="Sözleri Göster/Gizle">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+          </button>
+        </div>
+        <div class="np-lyrics-container" id="np-lyrics-container">
+          <div class="np-lyrics-loading" id="np-lyrics-loading">
+            <div class="spinner" style="width:24px;height:24px;border-width:2px"></div>
+            <span>Şarkı sözleri aranıyor...</span>
+          </div>
+          <div class="np-lyrics-content" id="np-lyrics-content" style="display:none"></div>
+          <div class="np-lyrics-not-found" id="np-lyrics-not-found" style="display:none">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32" opacity="0.3"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            <p>Şarkı sözü bulunamadı</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="np-divider"></div>
+
+      <!-- Artist Info Section -->
+      <div class="np-artist-section" id="np-artist-section">
+        <div class="np-artist-header">
+          <div class="np-artist-avatar" id="np-artist-avatar">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24" opacity="0.4"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <div class="np-artist-info">
+            <span class="np-artist-label">Sanatçı hakkında</span>
+            <h2 class="np-artist-name" id="np-artist-name">Sanatçı</h2>
+          </div>
+        </div>
+        <p class="np-artist-bio" id="np-artist-bio"></p>
+        <div class="np-artist-stats" id="np-artist-stats">
+          <span class="np-artist-stat" id="np-artist-song-count"></span>
+        </div>
+      </div>
+
+      <!-- Other Songs by Artist -->
+      <div class="np-more-songs" id="np-more-songs">
+        <h3 class="np-section-title" id="np-more-songs-title">Sanatçının Diğer Şarkıları</h3>
+        <div class="np-songs-list" id="np-songs-list"></div>
+      </div>
+
+      <!-- Credits / Contributors -->
+      <div class="np-credits" id="np-credits">
+        <h3 class="np-section-title">Katkıda bulunanlar</h3>
+        <div class="np-credits-list" id="np-credits-list"></div>
+      </div>
+
+      <!-- Spacer for bottom padding -->
+      <div class="np-bottom-spacer"></div>
     </div>
   </div>
 

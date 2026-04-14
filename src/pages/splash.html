@@ -70,7 +70,34 @@
       <div class="waveform-bar" style="--d:12"></div>
     </div>
 
-    <p class="brand-tagline">Tık Tık Müzik</p>
+    <p class="brand-tagline" id="randomTagline">Tık Tık Müzik</p>
+
+    <script>
+      const taglines = [
+        "bekir egoistin teki",
+        "müziksiz hayat hata olurdu",
+        "kulaklığını tak, dünyayı unut",
+        "bekir yine haklıydı",
+        "bu uygulama efsane ya",
+        "bugün ne dinlesek?",
+        "bassı kökle geç",
+        "bekir bi dahidir aslında",
+        "şarkı açmadan uyuma",
+        "müzik = terapi",
+        "bekofy açılmadan güne başlanmaz",
+        "bekir senden iyi bilir",
+        "dur bi şarkı geldi aklıma",
+        "hep aynı şarkıyı açma artık",
+        "bekir bunu da düşünmüş",
+        "kaliteli müzik, kaliteli insan",
+        "Tık Tık Müzik",
+        "bekir olmasa bu uygulama olmazdı",
+        "volume %100 hayat güzel",
+        "kulağına layık müzik"
+      ];
+      const el = document.getElementById('randomTagline');
+      el.textContent = taglines[Math.floor(Math.random() * taglines.length)];
+    </script>
   </div>
 
   <script>
