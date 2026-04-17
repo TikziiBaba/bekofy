@@ -489,11 +489,25 @@ async function fetchUserPublicProfile(userId) {
   if (isBlocked) return { data: null, error: { message: 'Bu profil bulunamadı veya gizli.' } };
   
   // Fetch profile
-  const { data: profile, error: profileError } = await sb
+  let profile, profileError;
+  const res1 = await sb
     .from('profiles')
-    .select('id, username, avatar_url, role')
+    .select('id, username, avatar_url, role, banner_url')
     .eq('id', userId)
     .single();
+  if (res1.error && res1.error.message && res1.error.message.includes('banner_url')) {
+    // Fallback if banner_url column doesn't exist
+    const res2 = await sb
+      .from('profiles')
+      .select('id, username, avatar_url, role')
+      .eq('id', userId)
+      .single();
+    profile = res2.data;
+    profileError = res2.error;
+  } else {
+    profile = res1.data;
+    profileError = res1.error;
+  }
     
   if (profileError) return { data: null, error: profileError };
   

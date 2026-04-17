@@ -14,7 +14,15 @@ let artistUsernames = new Set(); // For verified ticks
 document.addEventListener('DOMContentLoaded', () => {
   initTitlebar();
   initNavigation();
+  initSidebarCollapse();
   initPlayerControls();
+
+  // Wait briefly for elements
+  setTimeout(() => {
+    initLyricsToggle();
+    initLyricShare();
+    initLyricsSyncControls();
+  }, 500);
   initSearch();
   initPlaylistModal();
   initContextMenu();
@@ -41,6 +49,22 @@ function initTitlebar() {
   document.getElementById('btn-minimize').addEventListener('click', () => window.electronAPI.minimize());
   document.getElementById('btn-maximize').addEventListener('click', () => window.electronAPI.maximize());
   document.getElementById('btn-close').addEventListener('click', () => window.electronAPI.close());
+}
+
+// ===== Sidebar Collapse =====
+function initSidebarCollapse() {
+  const btn = document.getElementById('btn-collapse-sidebar');
+  const sidebar = document.getElementById('sidebar');
+  if(btn && sidebar) {
+    // Restore state from localStorage
+    const isCollapsed = localStorage.getItem('bekofy-sidebar-collapsed') === 'true';
+    if(isCollapsed) sidebar.classList.add('collapsed');
+
+    btn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      localStorage.setItem('bekofy-sidebar-collapsed', sidebar.classList.contains('collapsed'));
+    });
+  }
 }
 
 // ===== Navigation =====
@@ -105,24 +129,265 @@ function navigateTo(page) {
   }
 }
 
-// ===== Sidebar Profile Click =====
+// ===== Sidebar Profile Click (Discord Style) =====
 function initSidebarProfileClick() {
   const sidebarUser = document.getElementById('sidebar-user');
-  if (sidebarUser) {
-    // Make user-avatar and user-info clickable (not logout button)
-    const avatar = sidebarUser.querySelector('.user-avatar');
-    const info = sidebarUser.querySelector('.user-info');
-    [avatar, info].forEach(el => {
-      if (el) {
-        el.style.cursor = 'pointer';
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          navigateTo('profile');
+  const popup = document.getElementById('discord-profile-popup');
+  
+  if (sidebarUser && popup) {
+    sidebarUser.style.cursor = 'pointer';
+    sidebarUser.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      
+      // If already active, close it
+      if (popup.classList.contains('active')) {
+        popup.classList.remove('active');
+        return;
+      }
+      
+      try {
+        // Populate data before opening
+        await updateDiscordPopupData();
+      } catch (err) {
+        showToast('Kritik Hata: ' + err.message, 'error');
+        return;
+      }
+      
+      popup.classList.add('active');
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!popup.contains(e.target) && !sidebarUser.contains(e.target)) {
+        popup.classList.remove('active');
+        document.getElementById('discord-popup-submenu')?.classList.remove('open');
+        const chev = document.getElementById('switch-account-chevron');
+        if(chev) chev.style.transform = 'rotate(0deg)';
+      }
+    });
+    
+    // Bind buttons
+    document.getElementById('btn-discord-edit-profile')?.addEventListener('click', () => {
+      popup.classList.remove('active');
+      navigateTo('profile');
+    });
+    
+    document.getElementById('btn-discord-copy-id')?.addEventListener('click', () => {
+      if (currentUserId) {
+        navigator.clipboard.writeText(currentUserId).then(() => {
+          showToast('Kullanıcı ID\'si kopyalandı', 'success');
         });
+      }
+    });
+
+    // DND Toggle
+    let isDnd = localStorage.getItem('bekofy_dnd') === 'true';
+    const dndBtn = document.getElementById('btn-discord-dnd');
+    dndBtn?.addEventListener('click', () => {
+      isDnd = !isDnd;
+      localStorage.setItem('bekofy_dnd', isDnd);
+      updateDndUI();
+    });
+    
+    function updateDndUI() {
+      const statusIcon = document.querySelector('.discord-popup-status');
+      if (statusIcon && dndBtn) {
+        if (isDnd) {
+          statusIcon.className = 'discord-popup-status dnd';
+          dndBtn.querySelector('span').textContent = 'Rahatsız Etmeyin (Açık)';
+          dndBtn.classList.add('discord-danger');
+        } else {
+          statusIcon.className = 'discord-popup-status online';
+          dndBtn.querySelector('span').textContent = 'Rahatsız Etmeyin';
+          dndBtn.classList.remove('discord-danger');
+        }
+      }
+    }
+    // Set initial DND state if opened
+    updateDndUI();
+
+    // Switch Account Toggle
+    document.getElementById('btn-discord-switch-account')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const submenu = document.getElementById('discord-popup-submenu');
+      const chevron = document.getElementById('switch-account-chevron');
+      if (submenu) {
+        const isOpen = submenu.classList.toggle('open');
+        if (chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+        if (isOpen) {
+          saveCurrentAccountSession().then(() => renderAccountSubmenu());
+        }
+      }
+    });
+    
+    document.getElementById('discord-popup-submenu')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    // Logout
+    document.getElementById('btn-discord-logout')?.addEventListener('click', () => {
+      popup.classList.remove('active');
+      const logoutEvent = new Event('click');
+      document.getElementById('btn-logout')?.dispatchEvent(logoutEvent); 
+      if (window.electronAPI && window.electronAPI.logout) {
+        window.electronAPI.logout();
       }
     });
   }
 }
+
+// ===== Multi-Account System =====
+async function saveCurrentAccountSession() {
+  if (!currentUserId) return;
+  const username = document.getElementById('user-name').textContent.replace('✓', '').trim();
+  const avatarEl = document.getElementById('user-avatar').querySelector('img');
+  let avatar = '';
+  if (avatarEl) {
+    avatar = avatarEl.src;
+  } else {
+    avatar = document.getElementById('user-avatar').innerHTML; 
+  }
+
+  try {
+    const sb = typeof getSupabase === 'function' ? getSupabase() : null;
+    if (!sb) return;
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+
+    let accounts = JSON.parse(localStorage.getItem('bekofy_saved_accounts') || '[]');
+    accounts = accounts.filter(a => a.id !== currentUserId);
+    accounts.push({
+      id: currentUserId,
+      username: username,
+      avatar: avatar,
+      session: {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token
+      },
+      lastUsed: Date.now()
+    });
+    
+    localStorage.setItem('bekofy_saved_accounts', JSON.stringify(accounts));
+  } catch (err) {
+    console.error('Failed to save session for multi-account:', err);
+  }
+}
+
+window.switchAccountTo = async function(accountId) {
+  let accounts = JSON.parse(localStorage.getItem('bekofy_saved_accounts') || '[]');
+  const account = accounts.find(a => a.id === accountId);
+  if (!account) return;
+  
+  const sb = typeof getSupabase === 'function' ? getSupabase() : null;
+  if (!sb) return;
+  
+  try {
+    showToast('Hesap değiştiriliyor...', 'info');
+    const { data, error } = await sb.auth.setSession({
+      access_token: account.session.access_token,
+      refresh_token: account.session.refresh_token
+    });
+    if (error) throw error;
+    window.location.reload();
+  } catch (err) {
+    showToast('Hesaba geçiş yapılamadı, tekrar giriş yapın.', 'error');
+    accounts = accounts.filter(a => a.id !== accountId);
+    localStorage.setItem('bekofy_saved_accounts', JSON.stringify(accounts));
+  }
+};
+
+window.addNewAccount = function() {
+  if (typeof signOut === 'function') {
+    signOut().then(() => {
+       if (window.electronAPI && window.electronAPI.navigateToAuth) window.electronAPI.navigateToAuth();
+    });
+  }
+};
+
+function renderAccountSubmenu() {
+  const submenu = document.getElementById('discord-popup-submenu');
+  if (!submenu) return;
+  let accounts = JSON.parse(localStorage.getItem('bekofy_saved_accounts') || '[]');
+  accounts.sort((a,b) => b.lastUsed - a.lastUsed);
+  
+  let html = '';
+  accounts.forEach(acc => {
+    const isCurrent = acc.id === currentUserId;
+    let avatarHtml = `<div class="account-item-avatar">${acc.avatar.startsWith('<svg') ? acc.avatar : `<img src="${acc.avatar}">`}</div>`;
+    html += `
+      <button class="account-item" ${isCurrent ? '' : `onclick="window.switchAccountTo('${acc.id}')"`}>
+        ${avatarHtml}
+        <div class="account-item-info">
+          <span class="account-item-name">${escapeHtml(acc.username)}</span>
+        </div>
+        ${isCurrent ? `<div class="account-item-check"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
+      </button>
+    `;
+  });
+  
+  html += `
+    <button class="account-item" onclick="window.addNewAccount()">
+      <div class="account-item-avatar" style="background: transparent;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#23a559"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+      <div class="account-item-info">
+        <span class="account-item-name account-item-add">Yeni Hesap Ekle</span>
+      </div>
+    </button>
+  `;
+  submenu.innerHTML = html;
+}
+
+async function updateDiscordPopupData() {
+  // Username & Badges
+  const usernameEl = document.getElementById('discord-popup-username');
+  if (currentUserRole === 'artist') {
+    usernameEl.innerHTML = `${escapeHtml(document.getElementById('user-name').textContent.replace('✓', '').trim())} ${getVerifiedTick()}`;
+  } else {
+    usernameEl.textContent = document.getElementById('user-name').textContent.replace('✓', '').trim();
+  }
+
+  // Avatar
+  const avatarEl = document.getElementById('discord-popup-avatar');
+  avatarEl.innerHTML = document.getElementById('user-avatar').innerHTML;
+  
+  // Banner
+  const bannerEl = document.getElementById('discord-popup-banner');
+  if (window.currentUserBannerUrl) {
+    bannerEl.style.backgroundImage = `url('${window.currentUserBannerUrl}')`;
+  } else {
+    bannerEl.style.backgroundImage = '';
+  }
+
+  // Currently Playing (Rich Presence)
+  const actText = document.querySelector('.discord-popup-activity-text');
+  const actSub = document.querySelector('.discord-popup-activity-subtext');
+  const actIcon = document.querySelector('.discord-popup-activity-icon');
+
+  // Check global music player state if available. We can check UI for current song.
+  const nowPlayingTitle = document.getElementById('now-playing-title');
+  const nowPlayingArtist = document.getElementById('now-playing-artist');
+  const nowPlayingCover = document.getElementById('now-playing-cover');
+  
+  if (nowPlayingTitle && nowPlayingTitle.textContent !== 'Şarkı seçilmedi' && nowPlayingTitle.textContent !== 'Şarkı Seçilmedi') {
+    actText.textContent = nowPlayingTitle.textContent;
+    actSub.textContent = nowPlayingArtist ? nowPlayingArtist.textContent : 'Bekofy';
+    
+    // Check if the container has an image inside
+    const imgEl = nowPlayingCover ? nowPlayingCover.querySelector('img') : null;
+    
+    if (imgEl && imgEl.src && !imgEl.src.endsWith('default-cover.svg')) {
+      actIcon.innerHTML = `<img src="${imgEl.src}" alt="cover">`;
+    } else {
+      actIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+    }
+  } else {
+    actText.textContent = 'Şu an bir şey çalmıyor';
+    actSub.textContent = 'Bekofy';
+    actIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+  }
+}
+
 
 // ===== Load Artist Usernames for Verified Ticks =====
 async function loadArtistUsernames() {
@@ -228,11 +493,6 @@ async function loadUserAvatar(userId, displayName) {
       const color = getAvatarColor(displayName);
       avatarEl.innerHTML = `<div class="avatar-initials" style="width:100%;height:100%;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff">${initials}</div>`;
     }
-    
-    // Avatarı tıklayınca değiştirme
-    avatarEl.style.cursor = 'pointer';
-    avatarEl.title = 'Profil fotoğrafını değiştir';
-    avatarEl.onclick = () => openAvatarUpload(userId, displayName);
   } catch (err) {
     console.log('Avatar load error:', err);
   }
@@ -1174,16 +1434,24 @@ async function loadPlaylists() {
     
     const list = document.getElementById('playlist-list');
     
+    const likedSongsHtml = `
+      <div class="playlist-item" data-playlist-id="liked">
+        <div class="playlist-item-cover" style="background: linear-gradient(135deg, #450af5, #c4efd9);">
+          <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </div>
+        <div class="playlist-item-info">
+          <div class="playlist-item-name">Beğenilen Şarkılar</div>
+          <div class="playlist-item-meta">Otomatik Çalma Listesi</div>
+        </div>
+      </div>
+    `;
+
     if (error || !data || data.length === 0) {
-      list.innerHTML = `
-        <div class="playlist-empty">
-          <p>Henüz çalma listen yok</p>
-          <small>İlk çalma listeni oluştur!</small>
-        </div>`;
+      list.innerHTML = likedSongsHtml;
       return;
     }
     
-    list.innerHTML = data.map(pl => {
+    list.innerHTML = likedSongsHtml + data.map(pl => {
       const coverHtml = pl.cover_url 
         ? `<img src="${pl.cover_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:4px">` 
         : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
@@ -1289,6 +1557,63 @@ async function loadLibraryLikedSongs() {
 async function openPlaylistDetail(playlistId) {
   currentPlaylistId = playlistId;
   navigateTo('playlist');
+  
+  if (playlistId === 'liked') {
+    document.getElementById('playlist-detail-title').textContent = 'Beğenilen Şarkılar';
+    const descEl = document.getElementById('playlist-detail-description');
+    descEl.textContent = 'Otomatik Çalma Listesi';
+    descEl.style.display = 'block';
+    
+    document.getElementById('playlist-public-badge').style.display = 'none';
+    
+    const editBtn = document.getElementById('btn-playlist-edit');
+    const deleteBtn = document.getElementById('btn-playlist-delete');
+    if (editBtn) editBtn.style.display = 'none';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    
+    document.getElementById('playlist-detail-user').textContent = document.getElementById('user-name').textContent;
+    const avatarEl = document.getElementById('playlist-detail-avatar');
+    const sidebarAvatar = document.getElementById('user-avatar');
+    if (sidebarAvatar) avatarEl.innerHTML = sidebarAvatar.innerHTML;
+    
+    const coverEl = document.getElementById('playlist-detail-cover');
+    coverEl.innerHTML = `<div style="width:100%;height:100%;background:linear-gradient(135deg, #450af5, #c4efd9);display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="white" width="48" height="48"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>`;
+    
+    const songsContainer = document.getElementById('playlist-detail-songs');
+    songsContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Şarkılar yükleniyor...</p></div>`;
+    
+    try {
+      const { data } = await fetchLikedSongs(currentUserId);
+      const songs = (data || []).map(d => d.songs).filter(Boolean);
+      currentPlaylistSongs = songs;
+      
+      document.getElementById('playlist-detail-count').textContent = `${songs.length} şarkı`;
+      const totalDuration = songs.reduce((sum, s) => sum + (s.duration || 0), 0);
+      const mins = Math.floor(totalDuration / 60);
+      document.getElementById('playlist-detail-duration').textContent = mins > 60 ? `${Math.floor(mins/60)} sa ${mins%60} dk` : `${mins} dk`;
+      
+      if (songs.length > 0) {
+        songsContainer.innerHTML = `
+          <div class="song-list-header">
+            <span>#</span>
+            <span>Başlık</span>
+            <span>Albüm</span>
+            <span>Süre</span>
+          </div>
+          ${songs.map((song, i) => renderSongListItem(song, i + 1)).join('')}
+        `;
+      } else {
+        songsContainer.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48" opacity="0.2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <p>Henüz beğendiğin şarkı yok</p>
+          </div>`;
+      }
+    } catch(err) {
+      songsContainer.innerHTML = `<div class="empty-state"><p>Hata oluştu</p></div>`;
+    }
+    return;
+  }
   
   // Fetch fresh playlist data from Supabase
   let playlist = userPlaylists.find(p => p.id === playlistId);
@@ -1634,14 +1959,19 @@ async function removeSongFromCurrentPlaylist(songId) {
 
 // ===== Logout =====
 function initLogout() {
-  document.getElementById('btn-logout').addEventListener('click', async () => {
-    try {
-      await signOut();
-      window.electronAPI.navigateToAuth();
-    } catch (err) {
-      showToast('Çıkış yapılırken hata oluştu', 'error');
-    }
-  });
+  const logoutBtn = document.getElementById('btn-logout') || document.getElementById('btn-discord-logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await signOut();
+        if (window.electronAPI && window.electronAPI.navigateToAuth) {
+          window.electronAPI.navigateToAuth();
+        }
+      } catch (err) {
+        showToast('Çıkış yapılırken hata oluştu', 'error');
+      }
+    });
+  }
 }
 
 // ===== Helpers =====
@@ -2350,6 +2680,12 @@ async function loadProfilePage() {
         avatarEl.innerHTML = `<span style="font-size:40px;font-weight:700;color:var(--ts)">${getInitials(profile.username)}</span>`;
         if (removeBtn) removeBtn.style.display = 'none';
       }
+      
+      // Show banner if loaded
+      if (profile.banner_url) {
+        currentUserBannerUrl = profile.banner_url;
+        showBannerPreview(profile.banner_url);
+      }
     }
     
     const sb = getSupabase();
@@ -2433,6 +2769,17 @@ async function loadPublicUserProfile(userId) {
       avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar">`;
     } else {
       avatarEl.innerHTML = `<span style="font-size:60px;font-weight:700;color:var(--ts)">${getInitials(profile.username)}</span>`;
+    }
+    
+    // Show banner if exists
+    const bannerImg = document.getElementById('public-profile-banner-img');
+    if (bannerImg) {
+      if (profile.banner_url) {
+        bannerImg.src = profile.banner_url;
+        bannerImg.style.display = 'block';
+      } else {
+        bannerImg.style.display = 'none';
+      }
     }
     
     // Setup Buttons
@@ -3038,7 +3385,10 @@ let currentLyricsData = null;
 let parsedSyncedLyrics = [];
 let currentActiveLyricIndex = -1;
 let lyricsCollapsed = false;
+let isLyricShareMode = false;
+let selectedLyricIndexes = [];
 let lastLyricsSongId = null;
+let currentLyricOffset = 0; // seconds
 
 function parseLRC(lrcText) {
   if (!lrcText) return [];
@@ -3088,6 +3438,12 @@ async function loadNowPlayingLyrics(song) {
   currentLyricsData = null;
   parsedSyncedLyrics = [];
   currentActiveLyricIndex = -1;
+  currentLyricOffset = 0;
+
+  const syncDisp = document.getElementById('sync-offset-display');
+  if(syncDisp) { syncDisp.textContent = '0.0s'; syncDisp.style.color = 'var(--ts)'; }
+  const syncCtrl = document.getElementById('lyric-sync-controls');
+  if(syncCtrl) syncCtrl.style.display = 'none';
 
   try {
     const result = await getLyrics(song);
@@ -3105,12 +3461,13 @@ async function loadNowPlayingLyrics(song) {
 
     // Render lyrics
     if (result.syncedLyrics) {
+      if(syncCtrl) syncCtrl.style.display = 'flex';
       // Parse and render synced lyrics
       parsedSyncedLyrics = parseLRC(result.syncedLyrics);
       renderSyncedLyrics(parsedSyncedLyrics);
     } else if (result.plainLyrics) {
-      // Render plain text
-      renderPlainLyrics(result.plainLyrics);
+      // Render plain text with fake timings
+      renderPlainLyrics(result.plainLyrics, song.duration);
     }
 
     contentEl.style.display = 'block';
@@ -3125,21 +3482,52 @@ function renderSyncedLyrics(lines) {
   const contentEl = document.getElementById('np-lyrics-content');
   if (!contentEl) return;
 
-  const html = `<div class="np-lyrics-synced">
-    ${lines.map((line, i) => {
-      const text = line.text || '';
-      const isInstrumental = text === '' || text === '♪' || text === '♫';
-      return `<div class="np-lyric-line${isInstrumental ? ' instrumental' : ''}" data-lyric-index="${i}" data-lyric-time="${line.time}">
-        ${isInstrumental ? '♪ ♪ ♪' : escapeHtml(text)}
-      </div>`;
-    }).join('')}
-  </div>`;
+  let html = '<div class="np-lyrics-synced">';
 
+  lines.forEach((line, i) => {
+    const text = line.text || '';
+    const isInstrumental = text === '' || text === '♪' || text === '♫';
+
+    if (isInstrumental) {
+      html += `<div class="np-lyric-line instrumental" data-lyric-index="${i}" data-lyric-time="${line.time}">♪ ♪ ♪</div>`;
+    } else {
+      const words = text.split(/\s+/);
+      const lineStart = line.time;
+      const lineEnd = (i < lines.length - 1) ? lines[i + 1].time : lineStart + 4;
+      const duration = lineEnd - lineStart;
+
+      html += `<div class="np-lyric-line" data-lyric-index="${i}" data-lyric-time="${line.time}">`;
+      words.forEach((word, wi) => {
+        const wordTime = lineStart + (duration * wi / Math.max(words.length, 1));
+        html += `<span class="np-lyric-word" data-word-time="${wordTime.toFixed(3)}">${escapeHtml(word)}</span>`;
+      });
+      html += '</div>';
+    }
+  });
+
+  html += '</div>';
   contentEl.innerHTML = html;
 
   // Click to seek
   contentEl.querySelectorAll('.np-lyric-line').forEach(el => {
     el.addEventListener('click', () => {
+
+      // SHARE MODE LOGIC
+      if (isLyricShareMode) {
+        const idx = parseInt(el.dataset.lyricIndex);
+        if (selectedLyricIndexes.includes(idx)) {
+          selectedLyricIndexes = selectedLyricIndexes.filter(i => i !== idx);
+          el.classList.remove('selected-for-share');
+        } else {
+          if (selectedLyricIndexes.length < 2) {
+            selectedLyricIndexes.push(idx);
+            el.classList.add('selected-for-share');
+          }
+        }
+        document.getElementById('lyrics-share-count').textContent = `${selectedLyricIndexes.length}/2 Seçildi`;
+        document.getElementById('btn-share-continue').disabled = selectedLyricIndexes.length === 0;
+        return;
+      }
       const time = parseFloat(el.dataset.lyricTime);
       if (!isNaN(time) && player.audio.duration) {
         player.audio.currentTime = time;
@@ -3153,48 +3541,75 @@ function renderSyncedLyrics(lines) {
   });
 }
 
-function renderPlainLyrics(text) {
-  const contentEl = document.getElementById('np-lyrics-content');
-  if (!contentEl) return;
-  contentEl.innerHTML = `<div class="np-lyrics-plain">${escapeHtml(text)}</div>`;
+function renderPlainLyrics(text, duration) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return;
+
+  const totalDuration = duration || 180; // Varsayılan 3 dakika, eğer şarkı süresi yoksa
+  const timePerLine = totalDuration / lines.length;
+
+  const fakeSynced = lines.map((lineText, i) => {
+    return {
+      time: i * timePerLine,
+      text: lineText
+    };
+  });
+
+  parsedSyncedLyrics = fakeSynced;
+  renderSyncedLyrics(fakeSynced);
 }
 
 function updateSyncedLyricsHighlight(currentTime) {
   if (!parsedSyncedLyrics || parsedSyncedLyrics.length === 0) return;
 
+  let adjustedTime = currentTime + currentLyricOffset;
+
   // Find active line
   let activeIdx = -1;
   for (let i = parsedSyncedLyrics.length - 1; i >= 0; i--) {
-    if (currentTime >= parsedSyncedLyrics[i].time) {
+    if (adjustedTime >= parsedSyncedLyrics[i].time) {
       activeIdx = i;
       break;
     }
   }
 
-  if (activeIdx === currentActiveLyricIndex) return;
-  currentActiveLyricIndex = activeIdx;
-
   const container = document.getElementById('np-lyrics-container');
   const lines = document.querySelectorAll('.np-lyric-line');
   if (!lines.length) return;
 
-  lines.forEach((el, i) => {
-    el.classList.remove('active', 'past');
-    if (i === activeIdx) {
-      el.classList.add('active');
-    } else if (i < activeIdx) {
-      el.classList.add('past');
+  // Update line states & scroll only when active line changes
+  if (activeIdx !== currentActiveLyricIndex) {
+    currentActiveLyricIndex = activeIdx;
+
+    lines.forEach((el, i) => {
+      el.classList.remove('active', 'past');
+      if (i === activeIdx) {
+        el.classList.add('active');
+      } else if (i < activeIdx) {
+        el.classList.add('past');
+      }
+    });
+
+    // Auto-scroll active line to center
+    if (activeIdx >= 0 && lines[activeIdx] && container) {
+      const lineEl = lines[activeIdx];
+      const containerRect = container.getBoundingClientRect();
+      const lineRect = lineEl.getBoundingClientRect();
+      const offset = lineRect.top - containerRect.top - containerRect.height / 2 + lineRect.height / 2;
+      container.scrollTop += offset;
+    }
+  }
+
+  // Word-level highlighting (runs every frame for smooth transitions)
+  const allWords = document.querySelectorAll('.np-lyric-word');
+  allWords.forEach(wordEl => {
+    const wordTime = parseFloat(wordEl.dataset.wordTime);
+    if (adjustedTime >= wordTime) {
+      wordEl.classList.add('sung');
+    } else {
+      wordEl.classList.remove('sung');
     }
   });
-
-  // Auto-scroll active line to center
-  if (activeIdx >= 0 && lines[activeIdx] && container) {
-    const lineEl = lines[activeIdx];
-    const containerRect = container.getBoundingClientRect();
-    const lineRect = lineEl.getBoundingClientRect();
-    const offset = lineRect.top - containerRect.top - containerRect.height / 2 + lineRect.height / 2;
-    container.scrollTop += offset;
-  }
 }
 
 function initLyricsToggle() {
@@ -3202,11 +3617,40 @@ function initLyricsToggle() {
   const container = document.getElementById('np-lyrics-container');
   if (!toggleBtn || !container) return;
 
+  // Prevent multiple bindings
+  if(toggleBtn.dataset.bound) return;
+  toggleBtn.dataset.bound = 'true';
+
   toggleBtn.addEventListener('click', () => {
     lyricsCollapsed = !lyricsCollapsed;
     container.classList.toggle('collapsed', lyricsCollapsed);
     toggleBtn.classList.toggle('collapsed', lyricsCollapsed);
   });
+}
+
+function initLyricsSyncControls() {
+  const btnMinus = document.getElementById('btn-sync-minus');
+  const btnPlus = document.getElementById('btn-sync-plus');
+  if(!btnMinus || !btnPlus) return;
+
+  if(btnMinus.dataset.bound) return;
+  btnMinus.dataset.bound = 'true';
+  btnPlus.dataset.bound = 'true';
+  
+  btnMinus.addEventListener('click', () => adjustLyricSync(-0.5));
+  btnPlus.addEventListener('click', () => adjustLyricSync(0.5));
+}
+
+function adjustLyricSync(delta) {
+  currentLyricOffset += delta;
+  const disp = document.getElementById('sync-offset-display');
+  if(disp) {
+    disp.textContent = (currentLyricOffset > 0 ? '+' : '') + currentLyricOffset.toFixed(1) + 's';
+    disp.style.color = currentLyricOffset === 0 ? 'var(--ts)' : 'var(--green)';
+  }
+  if(parsedSyncedLyrics && parsedSyncedLyrics.length > 0) {
+    updateSyncedLyricsHighlight(player.audio.currentTime);
+  }
 }
 
 function syncNowPlayingPlayState() {
@@ -3488,6 +3932,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     initNowPlayingOverlay();
     initLyricsToggle();
+    initLyricShare();
   }, 200);
 });
 
@@ -3587,4 +4032,674 @@ async function openArtistProfile(artistName) {
     console.error('Artist profile error:', err);
     document.getElementById('artist-profile-songs').innerHTML = `<div class="empty-state"><p>Yüklenirken hata oluştu</p></div>`;
   }
+}
+
+// ===== SLEEP TIMER =====
+let sleepTimerId = null;
+let sleepTimeRemaining = 0;
+let sleepTimerInterval = null;
+
+function initSleepTimer() {
+  const btn = document.getElementById('btn-sleep-timer');
+  const popup = document.getElementById('sleep-timer-popup');
+  const badge = document.getElementById('sleep-timer-badge');
+  const cancelBtn = document.getElementById('sleep-cancel');
+  if (!btn || !popup) return;
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.sleep-timer-wrapper')) {
+      popup.style.display = 'none';
+    }
+  });
+
+  popup.querySelectorAll('.sleep-option[data-minutes]').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const minutes = parseInt(opt.dataset.minutes);
+      startSleepTimer(minutes);
+      popup.style.display = 'none';
+    });
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    cancelSleepTimer();
+    popup.style.display = 'none';
+  });
+}
+
+function startSleepTimer(minutes) {
+  cancelSleepTimer();
+  sleepTimeRemaining = minutes * 60;
+  const badge = document.getElementById('sleep-timer-badge');
+  const cancelBtn = document.getElementById('sleep-cancel');
+  const btn = document.getElementById('btn-sleep-timer');
+
+  badge.style.display = 'block';
+  cancelBtn.style.display = 'block';
+  btn.classList.add('active');
+  updateSleepBadge();
+
+  sleepTimerInterval = setInterval(() => {
+    sleepTimeRemaining--;
+    updateSleepBadge();
+
+    if (sleepTimeRemaining <= 0) {
+      // Fade out and pause
+      fadeOutAndPause();
+      cancelSleepTimer();
+    }
+  }, 1000);
+}
+
+function updateSleepBadge() {
+  const badge = document.getElementById('sleep-timer-badge');
+  if (!badge) return;
+  const m = Math.floor(sleepTimeRemaining / 60);
+  const s = sleepTimeRemaining % 60;
+  badge.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function fadeOutAndPause() {
+  const originalVol = player.audio.volume;
+  let vol = originalVol;
+  const fadeInterval = setInterval(() => {
+    vol -= 0.05;
+    if (vol <= 0) {
+      clearInterval(fadeInterval);
+      player.audio.pause();
+      player.isPlaying = false;
+      player.updatePlayButton();
+      player.audio.volume = originalVol;
+      showToast('Uyku zamanlayıcı: Müzik durduruldu 💤', 'success');
+    } else {
+      player.audio.volume = vol;
+    }
+  }, 100);
+}
+
+function cancelSleepTimer() {
+  if (sleepTimerInterval) clearInterval(sleepTimerInterval);
+  sleepTimerInterval = null;
+  sleepTimeRemaining = 0;
+  const badge = document.getElementById('sleep-timer-badge');
+  const cancelBtn = document.getElementById('sleep-cancel');
+  const btn = document.getElementById('btn-sleep-timer');
+  if (badge) badge.style.display = 'none';
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  if (btn) btn.classList.remove('active');
+}
+
+// ===== QUEUE PANEL =====
+let queuePanelOpen = false;
+
+function initQueuePanel() {
+  const btn = document.getElementById('btn-queue');
+  const closeBtn = document.getElementById('queue-panel-close');
+  if (btn) btn.addEventListener('click', toggleQueuePanel);
+  if (closeBtn) closeBtn.addEventListener('click', toggleQueuePanel);
+}
+
+function toggleQueuePanel() {
+  const panel = document.getElementById('queue-panel');
+  if (!panel) return;
+  queuePanelOpen = !queuePanelOpen;
+  panel.classList.toggle('open', queuePanelOpen);
+  if (queuePanelOpen) renderQueuePanel();
+}
+
+function renderQueuePanel() {
+  const nowEl = document.getElementById('queue-now-playing');
+  const listEl = document.getElementById('queue-list');
+  if (!nowEl || !listEl) return;
+
+  const currentSong = player.getCurrentSong();
+  if (currentSong) {
+    const coverHtml = currentSong.cover_url
+      ? `<img src="${currentSong.cover_url}" alt="">`
+      : `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" opacity=".3"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+    nowEl.innerHTML = `
+      <div class="queue-now-label">Şimdi Çalıyor</div>
+      <div class="queue-item playing">
+        <div class="queue-item-cover">${coverHtml}</div>
+        <div class="queue-item-info">
+          <div class="queue-item-title">${escapeHtml(currentSong.title)}</div>
+          <div class="queue-item-artist">${escapeHtml(currentSong.artist)}</div>
+        </div>
+      </div>`;
+  } else {
+    nowEl.innerHTML = '<div class="queue-empty">Şarkı çalmıyor</div>';
+  }
+
+  const upcoming = player.queue.filter((_, i) => i > player.currentIndex);
+  if (upcoming.length === 0) {
+    listEl.innerHTML = '<div class="queue-empty">Sırada şarkı yok</div>';
+    return;
+  }
+
+  listEl.innerHTML = upcoming.map((song, i) => {
+    const idx = player.currentIndex + 1 + i;
+    const coverHtml = song.cover_url
+      ? `<img src="${song.cover_url}" alt="">`
+      : `<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" opacity=".3"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+    return `
+      <div class="queue-item" data-queue-idx="${idx}">
+        <div class="queue-item-cover">${coverHtml}</div>
+        <div class="queue-item-info">
+          <div class="queue-item-title">${escapeHtml(song.title)}</div>
+          <div class="queue-item-artist">${escapeHtml(song.artist)}</div>
+        </div>
+        <button class="queue-item-remove" data-remove-idx="${idx}" title="Kaldır">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+        </button>
+      </div>`;
+  }).join('');
+
+  // Click to play
+  listEl.querySelectorAll('.queue-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.queue-item-remove')) return;
+      const idx = parseInt(el.dataset.queueIdx);
+      player.currentIndex = idx;
+      player.playSong(player.queue[idx]);
+      setTimeout(() => renderQueuePanel(), 300);
+    });
+  });
+
+  // Remove from queue
+  listEl.querySelectorAll('.queue-item-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.removeIdx);
+      player.queue.splice(idx, 1);
+      if (player.currentIndex > idx) player.currentIndex--;
+      renderQueuePanel();
+    });
+  });
+}
+
+// Keep queue panel in sync
+const _origOnTimeUpdate2 = player.onTimeUpdate.bind(player);
+player.onTimeUpdate = function() {
+  _origOnTimeUpdate2();
+  if (queuePanelOpen) {
+    // Only re-render when song changes (not every frame)
+  }
+};
+
+// ===== PREMIUM BADGE =====
+let currentUserIsPremium = false;
+let currentUserAvatarFrame = 'none';
+let currentUserTheme = 'default';
+let currentUserBannerUrl = null;
+
+function hasPremiumAccess() {
+  return currentUserIsPremium || currentUserRole === 'admin' || currentUserRole === 'yetkili' || currentUserRole === 'premium';
+}
+
+function getPremiumBadge() {
+  if (!currentUserIsPremium) return '';
+  return '<span class="premium-badge">💎 PREMIUM</span>';
+}
+
+function getAvatarFrameClass(frame) {
+  if (!frame || frame === 'none') return '';
+  return `avatar-frame avatar-frame-${frame}`;
+}
+
+// ===== THEME SYSTEM =====
+function initThemeSelector() {
+  const selector = document.getElementById('theme-selector');
+  if (!selector) return;
+
+  selector.querySelectorAll('.theme-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const theme = opt.dataset.theme;
+      if (theme !== 'default' && !hasPremiumAccess()) {
+        showToast('Özel temalar Premium üyelere özel 💎', 'error');
+        return;
+      }
+      applyTheme(theme);
+      selector.querySelectorAll('.theme-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      currentUserTheme = theme;
+      localStorage.setItem('bekofy_theme', theme);
+    });
+  });
+
+  // Mark non-default themes as locked for non-premium
+  updateThemeLocks();
+}
+
+function updateThemeLocks() {
+  const selector = document.getElementById('theme-selector');
+  if (!selector) return;
+  selector.querySelectorAll('.theme-option').forEach(opt => {
+    if (opt.dataset.theme !== 'default') {
+      opt.classList.toggle('locked', !hasPremiumAccess());
+    }
+  });
+  const note = document.getElementById('theme-premium-note');
+  if (note) note.textContent = hasPremiumAccess() ? '' : 'Özel temalar Premium üyelere özel';
+}
+
+function applyTheme(theme) {
+  if (theme === 'default') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+}
+
+function loadSavedTheme() {
+  const saved = localStorage.getItem('bekofy_theme') || 'default';
+  if (saved !== 'default' && hasPremiumAccess()) {
+    applyTheme(saved);
+    currentUserTheme = saved;
+    const opt = document.querySelector(`.theme-option[data-theme="${saved}"]`);
+    if (opt) {
+      document.querySelectorAll('.theme-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+    }
+  }
+}
+
+// ===== AVATAR FRAME SELECTOR =====
+function initFrameSelector() {
+  const selector = document.getElementById('frame-selector');
+  if (!selector) return;
+
+  selector.querySelectorAll('.frame-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const frame = opt.dataset.frame;
+      if (frame !== 'none' && !hasPremiumAccess()) {
+        showToast('Avatar çerçevesi Premium üyelere özel 💎', 'error');
+        return;
+      }
+      selector.querySelectorAll('.frame-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      currentUserAvatarFrame = frame;
+    });
+  });
+}
+
+// ===== PROFILE BANNER =====
+function initBannerUpload() {
+  const changeBtn = document.getElementById('btn-change-banner');
+  const removeBtn = document.getElementById('btn-remove-banner');
+  if (!changeBtn) return;
+
+  changeBtn.addEventListener('click', () => {
+    if (!hasPremiumAccess()) {
+      showToast('Profil banneri Premium üyelere özel 💎', 'error');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const sb = getSupabase();
+        const ext = file.name.split('.').pop();
+        const fileName = `${currentUserId}-banner-${Date.now()}.${ext}`;
+        const { error: uploadError } = await sb.storage.from('avatars').upload(fileName, file, { upsert: true, contentType: file.type });
+        if (uploadError) { showToast('Yükleme hatası', 'error'); return; }
+        const { data: urlData } = sb.storage.from('avatars').getPublicUrl(fileName);
+        const bannerUrl = urlData.publicUrl + '?t=' + Date.now();
+        await updateProfile(currentUserId, { banner_url: bannerUrl });
+        currentUserBannerUrl = bannerUrl;
+        showBannerPreview(bannerUrl);
+        showToast('Banner güncellendi ✨', 'success');
+      } catch (err) {
+        showToast('Banner yüklenemedi', 'error');
+      }
+    };
+    input.click();
+  });
+
+  if (removeBtn) {
+    removeBtn.addEventListener('click', async () => {
+      await updateProfile(currentUserId, { banner_url: null });
+      currentUserBannerUrl = null;
+      document.getElementById('banner-preview').style.display = 'none';
+      removeBtn.style.display = 'none';
+      showToast('Banner kaldırıldı', 'success');
+    });
+  }
+}
+
+function showBannerPreview(url) {
+  const preview = document.getElementById('banner-preview');
+  const img = document.getElementById('banner-preview-img');
+  const removeBtn = document.getElementById('btn-remove-banner');
+  if (preview && img && url) {
+    img.src = url;
+    preview.style.display = 'block';
+    if (removeBtn) removeBtn.style.display = 'inline-block';
+  }
+}
+
+// ===== OFFLINE DOWNLOAD =====
+function initOfflineDownload() {
+  const ctxDownload = document.getElementById('ctx-download');
+  if (!ctxDownload) return;
+
+  ctxDownload.addEventListener('click', async () => {
+    if (!hasPremiumAccess()) {
+      showToast('Çevrimdışı indirme Premium üyelere özel 💎', 'error');
+      return;
+    }
+    if (!window.electronAPI?.downloadSong) {
+      showToast('İndirme sadece masaüstü uygulamada çalışır', 'error');
+      return;
+    }
+    const songId = ctxDownload.closest('.context-menu')?.dataset?.songId;
+    // Use lastContextMenuSong if available
+    if (typeof lastContextMenuSong !== 'undefined' && lastContextMenuSong) {
+      try {
+        const url = await getSongUrl(lastContextMenuSong.file_path);
+        await window.electronAPI.downloadSong({ ...lastContextMenuSong, downloadUrl: url });
+        showToast(`"${lastContextMenuSong.title}" indiriliyor... 📥`, 'success');
+      } catch (err) {
+        showToast('İndirme hatası', 'error');
+      }
+    }
+  });
+}
+
+// ===== WRAPPED (YEARLY SUMMARY) =====
+async function loadWrappedPage() {
+  const container = document.getElementById('wrapped-cards');
+  if (!container) return;
+
+  try {
+    // Gather data from liked songs and playlists
+    const likedSongs = allSongs.filter(s => userLikedSongIds.has(s.id));
+    const totalLiked = likedSongs.length;
+
+    // Top artist
+    const artistCount = {};
+    likedSongs.forEach(s => {
+      const a = s.artist || 'Bilinmeyen';
+      artistCount[a] = (artistCount[a] || 0) + 1;
+    });
+    const topArtist = Object.entries(artistCount).sort((a, b) => b[1] - a[1])[0];
+
+    // Top genre/album
+    const albumCount = {};
+    likedSongs.forEach(s => {
+      if (s.album) albumCount[s.album] = (albumCount[s.album] || 0) + 1;
+    });
+    const topAlbum = Object.entries(albumCount).sort((a, b) => b[1] - a[1])[0];
+
+    // First liked song
+    const firstLiked = likedSongs.length > 0 ? likedSongs[likedSongs.length - 1] : null;
+
+    // Total duration of liked songs
+    const totalDuration = likedSongs.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const totalHours = Math.floor(totalDuration / 3600);
+    const totalMins = Math.floor((totalDuration % 3600) / 60);
+
+    // Different artists count
+    const uniqueArtists = new Set(likedSongs.map(s => s.artist)).size;
+
+    // Build cards
+    let html = '';
+
+    html += `
+      <div class="wrapped-card card-green" style="animation:fadeIn .3s ease .1s both">
+        <span class="wrapped-emoji">❤️</span>
+        <div class="wrapped-stat">${totalLiked}</div>
+        <div class="wrapped-label">Beğenilen Şarkı</div>
+        <div class="wrapped-detail">Toplam ${totalHours > 0 ? totalHours + ' saat ' : ''}${totalMins} dakika müzik</div>
+      </div>`;
+
+    if (topArtist) {
+      html += `
+        <div class="wrapped-card card-purple" style="animation:fadeIn .3s ease .2s both">
+          <span class="wrapped-emoji">🎤</span>
+          <div class="wrapped-stat">${escapeHtml(topArtist[0])}</div>
+          <div class="wrapped-label">En Sevdiğin Sanatçı</div>
+          <div class="wrapped-detail">${topArtist[1]} beğenilen şarkıyla</div>
+        </div>`;
+    }
+
+    html += `
+      <div class="wrapped-card card-blue" style="animation:fadeIn .3s ease .3s both">
+        <span class="wrapped-emoji">🎧</span>
+        <div class="wrapped-stat">${uniqueArtists}</div>
+        <div class="wrapped-label">Farklı Sanatçı</div>
+        <div class="wrapped-detail">Müzik zevkin çok geniş!</div>
+      </div>`;
+
+    if (topAlbum) {
+      html += `
+        <div class="wrapped-card card-orange" style="animation:fadeIn .3s ease .4s both">
+          <span class="wrapped-emoji">💿</span>
+          <div class="wrapped-stat">${escapeHtml(topAlbum[0])}</div>
+          <div class="wrapped-label">En Sevdiğin Albüm</div>
+          <div class="wrapped-detail">${topAlbum[1]} beğeniyle</div>
+        </div>`;
+    }
+
+    html += `
+      <div class="wrapped-card card-pink" style="animation:fadeIn .3s ease .5s both">
+        <span class="wrapped-emoji">📋</span>
+        <div class="wrapped-stat">${userPlaylists.length}</div>
+        <div class="wrapped-label">Çalma Listesi</div>
+        <div class="wrapped-detail">Kendi koleksiyonunu oluşturdun</div>
+      </div>`;
+
+    if (firstLiked) {
+      html += `
+        <div class="wrapped-card card-green" style="animation:fadeIn .3s ease .6s both">
+          <span class="wrapped-emoji">⭐</span>
+          <div class="wrapped-stat">${escapeHtml(firstLiked.title)}</div>
+          <div class="wrapped-label">İlk Beğendiğin Şarkı</div>
+          <div class="wrapped-detail">${escapeHtml(firstLiked.artist || '')}</div>
+        </div>`;
+    }
+
+    container.innerHTML = html || '<div class="empty-state"><p>Henüz yeterli veri yok. Şarkı beğenmeye başla!</p></div>';
+  } catch (err) {
+    console.error('Wrapped error:', err);
+    container.innerHTML = '<div class="empty-state"><p>Özet yüklenirken hata oluştu</p></div>';
+  }
+}
+
+// ===== LOAD PREMIUM DATA ON USER INFO =====
+const _origLoadUserInfoFinal = loadUserInfo;
+loadUserInfo = async function() {
+  await _origLoadUserInfoFinal();
+
+  // Load premium data
+  try {
+    const sb = getSupabase();
+    const { data } = await sb.from('profiles')
+      .select('is_premium, banner_url, theme, avatar_frame')
+      .eq('id', currentUserId)
+      .maybeSingle();
+
+    if (data) {
+      currentUserIsPremium = data.is_premium || false;
+      currentUserBannerUrl = data.banner_url || null;
+      currentUserTheme = data.theme || 'default';
+      currentUserAvatarFrame = data.avatar_frame || 'none';
+
+      // Apply premium badge in sidebar
+      const nameEl = document.getElementById('user-name');
+      if (nameEl && currentUserIsPremium && !nameEl.querySelector('.premium-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'premium-badge';
+        badge.textContent = '💎';
+        nameEl.appendChild(badge);
+      }
+
+      // Apply avatar frame in sidebar
+      const avatarEl = document.getElementById('user-avatar');
+      if (avatarEl && currentUserAvatarFrame !== 'none') {
+        const frameClass = getAvatarFrameClass(currentUserAvatarFrame);
+        if (frameClass) avatarEl.className = 'user-avatar ' + frameClass;
+      }
+
+      // Apply saved theme
+      loadSavedTheme();
+      updateThemeLocks();
+
+      // Show banner preview if exists
+      if (currentUserBannerUrl) showBannerPreview(currentUserBannerUrl);
+
+      // Set frame selector active
+      const frameOpt = document.querySelector(`.frame-option[data-frame="${currentUserAvatarFrame}"]`);
+      if (frameOpt) {
+        document.querySelectorAll('.frame-option').forEach(o => o.classList.remove('active'));
+        frameOpt.classList.add('active');
+      }
+    }
+  } catch (err) {
+    console.log('Premium data load error:', err);
+  }
+};
+
+// ===== SAVE PROFILE WITH NEW FIELDS =====
+const _origSaveProfile = document.getElementById('btn-save-profile');
+// Override is handled in initProfilePage, we hook into it differently
+const _origInitProfilePage = initProfilePage;
+initProfilePage = function() {
+  _origInitProfilePage();
+
+  // Override save button to include theme + frame
+  const saveBtn = document.getElementById('btn-save-profile');
+  if (saveBtn) {
+    const originalClick = saveBtn.onclick;
+    saveBtn.addEventListener('click', async () => {
+      // Save theme and frame to DB
+      if (currentUserId) {
+        try {
+          await updateProfile(currentUserId, {
+            theme: currentUserTheme,
+            avatar_frame: currentUserAvatarFrame
+          });
+        } catch (e) {
+          console.log('Theme/frame save error:', e);
+        }
+      }
+    });
+  }
+};
+
+// ===== NAVIGATION HOOK FOR WRAPPED =====
+const _origNavigateTo = navigateTo;
+navigateTo = function(page) {
+  _origNavigateTo(page);
+  if (page === 'wrapped') {
+    loadWrappedPage();
+  }
+};
+
+// ===== INIT ALL NEW FEATURES =====
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    initSleepTimer();
+    initQueuePanel();
+    initThemeSelector();
+    initFrameSelector();
+    initBannerUpload();
+    initOfflineDownload();
+  }, 300);
+});
+
+
+// ===== Lyric Sharing =====
+function initLyricShare() {
+  const btnShare = document.getElementById('btn-share-lyrics');
+  const actionBar = document.getElementById('lyrics-share-action-bar');
+  const btnCancel = document.getElementById('btn-share-cancel');
+  const btnContinue = document.getElementById('btn-share-continue');
+  const countSpan = document.getElementById('lyrics-share-count');
+  
+  if (!btnShare || !actionBar) return;
+
+  function resetShareMode() {
+    isLyricShareMode = false;
+    selectedLyricIndexes = [];
+    actionBar.style.display = 'none';
+    document.querySelectorAll('.np-lyric-line.selected-for-share').forEach(el => el.classList.remove('selected-for-share'));
+    btnContinue.disabled = true;
+    countSpan.textContent = '0/2 Seçildi';
+  }
+
+  btnShare.addEventListener('click', () => {
+    if(!parsedSyncedLyrics || parsedSyncedLyrics.length === 0) return;
+    if(isLyricShareMode) resetShareMode();
+    else {
+      isLyricShareMode = true;
+      selectedLyricIndexes = [];
+      actionBar.style.display = 'flex';
+      btnContinue.disabled = true;
+      countSpan.textContent = '0/2 Seçildi';
+    }
+  });
+
+  btnCancel.addEventListener('click', resetShareMode);
+
+  // Line selection logic is handled in the lyrical click listener below.
+  // Generate Card Button
+  btnContinue.addEventListener('click', () => {
+    if (selectedLyricIndexes.length === 0) return;
+    const song = player.currentSong;
+    if (!song) return;
+
+    // Collect texts
+    selectedLyricIndexes.sort((a,b) => a - b);
+    const texts = selectedLyricIndexes.map(idx => parsedSyncedLyrics[idx].text);
+    
+    // Populate card
+    document.getElementById('card-lyrics-text').innerHTML = '"' + texts.map(escapeHtml).join('<br>') + '"';
+    document.getElementById('card-song-title').textContent = escapeHtml(song.title || 'Bilinmiyor');
+    document.getElementById('card-song-artist').textContent = escapeHtml(song.artist || 'Sanatçı');
+    
+    const coverUrl = song.cover_url || '';
+    document.getElementById('card-cover-img').src = coverUrl;
+
+    const modal = document.getElementById('modal-share-lyrics');
+    const preview = document.getElementById('share-lyrics-preview-container');
+    const downloadBtn = document.getElementById('btn-download-lyric-card');
+    
+    preview.innerHTML = '<div class="spinner"></div>';
+    modal.classList.remove('modal-hidden');
+
+    setTimeout(() => {
+      if(typeof html2canvas === 'undefined') {
+        preview.innerHTML = '<p style="color:white;padding:20px">html2canvas yüklenemedi.</p>';
+        return;
+      }
+      const template = document.getElementById('lyric-card-template');
+      html2canvas(template, { scale: 1, useCORS: true, backgroundColor: null }).then(canvas => {
+        const dataUrl = canvas.toDataURL('image/png');
+        preview.innerHTML = `<img src="${dataUrl}" style="width:100%; height:auto; display:block">`;
+        
+        downloadBtn.onclick = () => {
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = `bekofy-sozler-${song.title}.png`;
+          a.click();
+        };
+      }).catch(err => {
+        preview.innerHTML = '<p style="color:white;padding:20px">Resim oluşturulamadı.</p>';
+      });
+    }, 100);
+
+    resetShareMode();
+  });
+
+  // Modal close
+  document.getElementById('btn-close-share-lyrics')?.addEventListener('click', () => {
+    document.getElementById('modal-share-lyrics').classList.add('modal-hidden');
+  });
 }

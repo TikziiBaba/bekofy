@@ -115,6 +115,78 @@ ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
 });
 
+// ===== Offline Download =====
+const https = require('https');
+const http = require('http');
+
+ipcMain.handle('download-song', async (event, songData) => {
+  const offlineDir = path.join(app.getPath('userData'), 'offline-songs');
+  if (!fs.existsSync(offlineDir)) fs.mkdirSync(offlineDir, { recursive: true });
+
+  const fileName = `${songData.id}.mp3`;
+  const filePath = path.join(offlineDir, fileName);
+
+  // If already downloaded, skip
+  if (fs.existsSync(filePath)) return { success: true, path: filePath };
+
+  // Download the file
+  return new Promise((resolve) => {
+    const url = songData.downloadUrl;
+    const protocol = url.startsWith('https') ? https : http;
+    const file = fs.createWriteStream(filePath);
+
+    protocol.get(url, (response) => {
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close();
+        // Save metadata
+        const metaPath = path.join(offlineDir, `${songData.id}.json`);
+        fs.writeFileSync(metaPath, JSON.stringify({
+          id: songData.id,
+          title: songData.title,
+          artist: songData.artist,
+          album: songData.album,
+          cover_url: songData.cover_url,
+          duration: songData.duration,
+          file_path: filePath,
+          downloaded_at: new Date().toISOString()
+        }));
+        resolve({ success: true, path: filePath });
+      });
+    }).on('error', (err) => {
+      fs.unlink(filePath, () => {});
+      resolve({ success: false, error: err.message });
+    });
+  });
+});
+
+ipcMain.handle('get-offline-songs', async () => {
+  const offlineDir = path.join(app.getPath('userData'), 'offline-songs');
+  if (!fs.existsSync(offlineDir)) return [];
+
+  const files = fs.readdirSync(offlineDir).filter(f => f.endsWith('.json'));
+  return files.map(f => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(offlineDir, f), 'utf-8'));
+    } catch (e) {
+      return null;
+    }
+  }).filter(Boolean);
+});
+
+ipcMain.handle('delete-offline-song', async (event, songId) => {
+  const offlineDir = path.join(app.getPath('userData'), 'offline-songs');
+  const mp3Path = path.join(offlineDir, `${songId}.mp3`);
+  const metaPath = path.join(offlineDir, `${songId}.json`);
+  try {
+    if (fs.existsSync(mp3Path)) fs.unlinkSync(mp3Path);
+    if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
 app.whenReady().then(() => {
   cleanCache();
   createWindow();
