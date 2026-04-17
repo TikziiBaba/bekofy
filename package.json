@@ -1,6 +1,6 @@
 {
   "name": "bekofy",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Bekofy - Spotify benzeri masaüstü müzik uygulaması",
   "main": "main.js",
   "scripts": {
