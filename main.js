@@ -3,9 +3,22 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 const { autoUpdater } = require('electron-updater');
+const { execSync } = require('child_process');
+const { initDiscordRPC, updatePresence, clearPresence, destroyRPC } = require('./src/js/discord-rpc');
+
+function isAppRunningAsAdmin() {
+  if (process.platform !== 'win32') return false;
+  try {
+    execSync('net session', { stdio: 'ignore', windowsHide: true });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 let mainWindow;
 let splashWindow;
+let miniPlayerWindow = null;
 
 // Clean corrupt cache on startup
 function cleanCache() {
@@ -39,7 +52,8 @@ function createWindow() {
     }
   });
   
-  splashWindow.loadFile('src/pages/splash.html');
+  const isAdmin = isAppRunningAsAdmin();
+  splashWindow.loadFile('src/pages/splash.html', { query: { admin: isAdmin.toString() } });
 
   // Create Main Window in background
   mainWindow = new BrowserWindow({
@@ -113,6 +127,111 @@ ipcMain.on('navigate-to-auth', () => {
 // Open external URLs (for OAuth)
 ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
+});
+
+// ===== Discord Rich Presence =====
+ipcMain.on('update-discord-rpc', (event, songData) => {
+  updatePresence(songData);
+});
+
+ipcMain.on('clear-discord-rpc', () => {
+  clearPresence();
+});
+
+// ===== Mini Player =====
+function createMiniPlayer() {
+  if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+    miniPlayerWindow.focus();
+    return;
+  }
+
+  miniPlayerWindow = new BrowserWindow({
+    width: 360,
+    height: 100,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    backgroundColor: '#00000000',
+    icon: path.join(__dirname, 'build', 'icon.ico'),
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  miniPlayerWindow.loadFile('src/pages/mini-player.html');
+
+  // Position bottom-right of screen
+  const { screen } = require('electron');
+  const display = screen.getPrimaryDisplay();
+  const { width, height } = display.workAreaSize;
+  miniPlayerWindow.setPosition(width - 380, height - 120);
+
+  miniPlayerWindow.on('closed', () => {
+    miniPlayerWindow = null;
+    // Show main window when mini player closes
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+ipcMain.on('toggle-mini-player', () => {
+  if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+    // Close mini player, show main
+    miniPlayerWindow.close();
+  } else {
+    // Open mini player, minimize main
+    createMiniPlayer();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.minimize();
+    }
+  }
+});
+
+ipcMain.on('update-mini-player', (event, data) => {
+  if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+    miniPlayerWindow.webContents.send('mini-player-update', data);
+  }
+});
+
+ipcMain.on('update-mini-player-progress', (event, data) => {
+  if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+    miniPlayerWindow.webContents.send('mini-player-progress', data);
+  }
+});
+
+// Mini player sends commands back to main window
+ipcMain.on('mini-player-command', (event, command, data) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  switch (command) {
+    case 'toggle-play':
+      mainWindow.webContents.send('mini-command', 'toggle-play');
+      break;
+    case 'next':
+      mainWindow.webContents.send('mini-command', 'next');
+      break;
+    case 'prev':
+      mainWindow.webContents.send('mini-command', 'prev');
+      break;
+    case 'seek':
+      mainWindow.webContents.send('mini-command', 'seek', data);
+      break;
+    case 'back-to-main':
+      if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+        miniPlayerWindow.close();
+      }
+      break;
+    case 'close':
+      if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+        miniPlayerWindow.close();
+      }
+      break;
+  }
 });
 
 // ===== Offline Download =====
@@ -191,6 +310,9 @@ app.whenReady().then(() => {
   cleanCache();
   createWindow();
 
+  // Discord Rich Presence başlat
+  initDiscordRPC();
+
   // Otomatik güncellemeleri kontrol et
   autoUpdater.checkForUpdatesAndNotify();
 });
@@ -216,6 +338,7 @@ autoUpdater.on('update-downloaded', () => {
   });
 });
 app.on('window-all-closed', () => {
+  destroyRPC();
   app.quit();
 });
 

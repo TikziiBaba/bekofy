@@ -62,6 +62,12 @@ class MusicPlayer {
       this.updatePlayButton();
       this.highlightCurrentSong(song.id);
       this.saveState(song);
+
+      // Discord Rich Presence
+      this.updateDiscordRPC(song, true);
+
+      // Mini Player sync
+      this.syncMiniPlayer(song);
     } catch (err) {
       console.error('Error playing song:', err);
       showToast('Şarkı oynatılamadı', 'error');
@@ -77,6 +83,13 @@ class MusicPlayer {
     }
     this.isPlaying = !this.isPlaying;
     this.updatePlayButton();
+
+    // Discord RPC & Mini Player sync
+    const song = this.getCurrentSong();
+    if (song) {
+      this.updateDiscordRPC(song, this.isPlaying);
+      this.syncMiniPlayer(song);
+    }
   }
 
   next() {
@@ -106,6 +119,12 @@ class MusicPlayer {
   seek(percent) {
     if (!this.audio.duration) return;
     this.audio.currentTime = (percent / 100) * this.audio.duration;
+    
+    // Discord RPC zamanı güncelle (kullanıcı ileri/geri sardığında)
+    const song = this.getCurrentSong();
+    if (song && this.isPlaying) {
+      this.updateDiscordRPC(song, true);
+    }
   }
 
   setVolume(vol) {
@@ -137,10 +156,21 @@ class MusicPlayer {
     document.getElementById('progress-bar-fill').style.width = percent + '%';
     document.getElementById('progress-bar-knob').style.left = percent + '%';
     document.getElementById('time-current').textContent = this.formatTime(currentTime);
+
+    // Mini Player progress sync
+    if (window.electronAPI && window.electronAPI.updateMiniPlayerProgress) {
+      window.electronAPI.updateMiniPlayerProgress({ percent });
+    }
   }
 
   onLoaded() {
     document.getElementById('time-total').textContent = this.formatTime(this.audio.duration);
+    
+    // Şarkının tam süresi yüklendiğinde Discord RPC'ye gönder
+    const song = this.getCurrentSong();
+    if (song && this.isPlaying) {
+      this.updateDiscordRPC(song, true);
+    }
   }
 
   onEnded() {
@@ -152,6 +182,10 @@ class MusicPlayer {
     } else {
       this.isPlaying = false;
       this.updatePlayButton();
+      // Clear Discord RPC when playback ends
+      if (window.electronAPI && window.electronAPI.clearDiscordRPC) {
+        window.electronAPI.clearDiscordRPC();
+      }
     }
   }
 
@@ -163,7 +197,7 @@ class MusicPlayer {
   // UI Updates
   updateUI(song) {
     document.getElementById('now-playing-title').textContent = song.title;
-    document.getElementById('now-playing-artist').textContent = song.artist;
+    document.getElementById('now-playing-artist').innerHTML = typeof formatArtistLinks === 'function' ? formatArtistLinks(song.artist) : (song.artist || '');
     
     const cover = document.getElementById('now-playing-cover');
     if (song.cover_url) {
@@ -240,7 +274,60 @@ class MusicPlayer {
     }
     return null;
   }
+
+  // ===== Discord Rich Presence =====
+  updateDiscordRPC(song, isPlaying) {
+    if (!window.electronAPI || !window.electronAPI.updateDiscordRPC) return;
+    try {
+      window.electronAPI.updateDiscordRPC({
+        title: song.title,
+        artist: song.artist,
+        album: song.album || '',
+        cover_url: song.cover_url || '',
+        duration: this.audio.duration || song.duration || 0,
+        currentTime: this.audio.currentTime || 0,
+        isPlaying: isPlaying
+      });
+    } catch (e) {
+      // Silent fail
+    }
+  }
+
+  // ===== Mini Player Sync =====
+  syncMiniPlayer(song) {
+    if (!window.electronAPI || !window.electronAPI.updateMiniPlayer) return;
+    try {
+      window.electronAPI.updateMiniPlayer({
+        title: song.title,
+        artist: song.artist,
+        cover_url: song.cover_url || '',
+        isPlaying: this.isPlaying
+      });
+    } catch (e) {
+      // Silent fail
+    }
+  }
 }
 
 // Global player instance
 const player = new MusicPlayer();
+
+// Listen for mini player commands
+if (window.electronAPI && window.electronAPI.onMiniCommand) {
+  window.electronAPI.onMiniCommand((command, data) => {
+    switch (command) {
+      case 'toggle-play':
+        player.togglePlay();
+        break;
+      case 'next':
+        player.next();
+        break;
+      case 'prev':
+        player.previous();
+        break;
+      case 'seek':
+        if (data !== undefined) player.seek(data);
+        break;
+    }
+  });
+}

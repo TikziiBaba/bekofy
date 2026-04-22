@@ -409,6 +409,14 @@ function getVerifiedTick(artistName) {
   return '';
 }
 
+function formatArtistLinks(artistStr) {
+  if (!artistStr) return '';
+  const artists = artistStr.split(',').map(a => a.trim()).filter(Boolean);
+  return artists.map(artist => {
+    return `<span class="artist-link" data-artist-name="${escapeHtml(artist)}">${escapeHtml(artist)}${getVerifiedTick(artist)}</span>`;
+  }).join(', ');
+}
+
 // ===== Greeting =====
 function setGreeting() {
   const hour = new Date().getHours();
@@ -667,7 +675,7 @@ function createSongCard(song) {
         </button>
       </div>
       <div class="song-card-title">${escapeHtml(song.title)}</div>
-      <div class="song-card-artist"><span class="artist-link" data-artist-name="${escapeHtml(song.artist)}">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</span></div>
+      <div class="song-card-artist">${formatArtistLinks(song.artist)}</div>
     </div>
   `;
 }
@@ -704,7 +712,7 @@ function renderSongListItem(song, num) {
         <div class="song-list-cover">${coverHtml}</div>
         <div class="song-list-details">
           <div class="song-list-title">${escapeHtml(song.title)}</div>
-          <div class="song-list-subtitle"><span class="artist-link" data-artist-name="${escapeHtml(song.artist)}">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</span></div>
+          <div class="song-list-subtitle">${formatArtistLinks(song.artist)}</div>
         </div>
       </div>
       <div class="song-list-album">${escapeHtml(song.album || '—')}</div>
@@ -1018,7 +1026,7 @@ async function showSearchDiscovery() {
                   <div class="discovery-song-cover">${coverHtml}</div>
                   <div class="discovery-song-info">
                     <div class="discovery-song-title">${escapeHtml(song.title)}</div>
-                    <div class="discovery-song-artist">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</div>
+                    <div class="discovery-song-artist">${formatArtistLinks(song.artist)}</div>
                   </div>
                 </div>
               `;
@@ -1805,8 +1813,21 @@ function initEditPlaylistModal() {
   // Cover file selection
   coverLabel.addEventListener('click', (e) => {
     e.preventDefault();
+    coverFileInput.value = '';
     coverFileInput.click();
   });
+  
+  // Make cover preview image clickable to change cover
+  const coverImg = document.getElementById('edit-playlist-cover-img');
+  if (coverImg) {
+    coverImg.style.cursor = 'pointer';
+    coverImg.title = 'Kapak fotoğrafını değiştirmek için tıkla';
+    coverImg.addEventListener('click', (e) => {
+      e.stopPropagation();
+      coverFileInput.value = '';
+      coverFileInput.click();
+    });
+  }
   
   coverFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -1825,7 +1846,8 @@ function initEditPlaylistModal() {
     reader.readAsDataURL(file);
   });
   
-  coverRemove.addEventListener('click', () => {
+  coverRemove.addEventListener('click', (e) => {
+    e.stopPropagation();
     editPlaylistCoverFile = null;
     coverPreview.style.display = 'none';
     coverLabel.style.display = 'flex';
@@ -2500,7 +2522,7 @@ async function loadAdminSongs() {
       <div class="admin-song-row" data-song-id="${song.id}">
         <span class="song-num">${i + 1}</span>
         <span class="song-title-col">${escapeHtml(song.title)}</span>
-        <span class="song-artist-col">${escapeHtml(song.artist)}</span>
+        <span class="song-artist-col">${formatArtistLinks(song.artist)}</span>
         <span class="song-duration-col">${formatDuration(song.duration)}</span>
         <button class="btn-delete-song" data-delete-song="${song.id}" title="Şarkıyı Sil">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -2606,7 +2628,7 @@ function initProfilePage() {
         try {
           const sb = getSupabase();
           const ext = file.name.split('.').pop();
-          const fileName = `${currentUserId}-${Date.now()}.${ext}`;
+          const fileName = `${currentUserId}/avatar-${Date.now()}.${ext}`;
           
           const { error: uploadError } = await sb.storage
             .from('avatars')
@@ -3355,7 +3377,7 @@ function updateNowPlayingOverlay() {
 
   // Song info
   document.getElementById('np-song-title').textContent = song.title;
-  document.getElementById('np-song-artist').innerHTML = escapeHtml(song.artist) + getVerifiedTick(song.artist);
+  document.getElementById('np-song-artist').innerHTML = formatArtistLinks(song.artist);
 
   // Sync play/pause state
   syncNowPlayingPlayState();
@@ -3378,6 +3400,149 @@ function updateNowPlayingOverlay() {
 
   // Load lyrics
   loadNowPlayingLyrics(song);
+
+  // Spotify Canvas: extract colors from cover art
+  updateCanvasBackground(song.cover_url);
+}
+
+// ===== Spotify Canvas Background Color Extraction =====
+let _lastCanvasCoverUrl = null;
+
+function updateCanvasBackground(coverUrl) {
+  const bgEl = document.getElementById('np-canvas-bg');
+  if (!bgEl) return;
+
+  // Don't re-extract for same image
+  if (coverUrl === _lastCanvasCoverUrl) return;
+  _lastCanvasCoverUrl = coverUrl;
+
+  if (!coverUrl) {
+    // Reset to defaults
+    bgEl.style.setProperty('--canvas-color-1', 'rgba(29, 185, 84, 0.4)');
+    bgEl.style.setProperty('--canvas-color-2', 'rgba(30, 60, 120, 0.4)');
+    bgEl.style.setProperty('--canvas-color-3', 'rgba(120, 40, 140, 0.35)');
+    bgEl.style.setProperty('--canvas-color-4', 'rgba(200, 100, 50, 0.3)');
+    return;
+  }
+
+  // Load image and extract colors
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    try {
+      const canvas = document.getElementById('np-color-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      
+      // Draw small version for performance
+      const size = 64;
+      canvas.width = size;
+      canvas.height = size;
+      ctx.drawImage(img, 0, 0, size, size);
+      
+      const imageData = ctx.getImageData(0, 0, size, size).data;
+      const colors = extractDominantColors(imageData, size, size, 4);
+      
+      // Apply colors with nice opacity
+      if (colors.length >= 4) {
+        bgEl.style.setProperty('--canvas-color-1', `rgba(${colors[0].r}, ${colors[0].g}, ${colors[0].b}, 0.45)`);
+        bgEl.style.setProperty('--canvas-color-2', `rgba(${colors[1].r}, ${colors[1].g}, ${colors[1].b}, 0.4)`);
+        bgEl.style.setProperty('--canvas-color-3', `rgba(${colors[2].r}, ${colors[2].g}, ${colors[2].b}, 0.35)`);
+        bgEl.style.setProperty('--canvas-color-4', `rgba(${colors[3].r}, ${colors[3].g}, ${colors[3].b}, 0.3)`);
+      }
+    } catch (e) {
+      console.log('Canvas color extraction error:', e);
+    }
+  };
+  img.onerror = () => {
+    // Fallback colors on error
+    _lastCanvasCoverUrl = null;
+  };
+  img.src = coverUrl;
+}
+
+function extractDominantColors(imageData, width, height, numColors) {
+  // Simple color quantization: sample pixels and cluster
+  const pixels = [];
+  const step = 4; // sample every 4th pixel for performance
+  
+  for (let i = 0; i < imageData.length; i += 4 * step) {
+    const r = imageData[i];
+    const g = imageData[i + 1];
+    const b = imageData[i + 2];
+    const a = imageData[i + 3];
+    
+    // Skip transparent and very dark/very light pixels
+    if (a < 128) continue;
+    const brightness = (r + g + b) / 3;
+    if (brightness < 20 || brightness > 240) continue;
+    
+    pixels.push({ r, g, b });
+  }
+  
+  if (pixels.length < numColors) {
+    // Not enough pixels, return defaults
+    return [
+      { r: 29, g: 185, b: 84 },
+      { r: 30, g: 60, b: 120 },
+      { r: 120, g: 40, b: 140 },
+      { r: 200, g: 100, b: 50 }
+    ];
+  }
+  
+  // K-means clustering (simplified)
+  let centroids = [];
+  const pixelStep = Math.floor(pixels.length / numColors);
+  for (let i = 0; i < numColors; i++) {
+    centroids.push({ ...pixels[i * pixelStep] });
+  }
+  
+  for (let iter = 0; iter < 10; iter++) {
+    const clusters = Array.from({ length: numColors }, () => []);
+    
+    for (const pixel of pixels) {
+      let minDist = Infinity;
+      let closest = 0;
+      for (let c = 0; c < centroids.length; c++) {
+        const dr = pixel.r - centroids[c].r;
+        const dg = pixel.g - centroids[c].g;
+        const db = pixel.b - centroids[c].b;
+        const dist = dr * dr + dg * dg + db * db;
+        if (dist < minDist) {
+          minDist = dist;
+          closest = c;
+        }
+      }
+      clusters[closest].push(pixel);
+    }
+    
+    for (let c = 0; c < numColors; c++) {
+      if (clusters[c].length === 0) continue;
+      const sum = clusters[c].reduce((acc, p) => ({
+        r: acc.r + p.r,
+        g: acc.g + p.g,
+        b: acc.b + p.b
+      }), { r: 0, g: 0, b: 0 });
+      centroids[c] = {
+        r: Math.round(sum.r / clusters[c].length),
+        g: Math.round(sum.g / clusters[c].length),
+        b: Math.round(sum.b / clusters[c].length)
+      };
+    }
+  }
+  
+  // Boost saturation slightly for more vivid blobs
+  return centroids.map(c => {
+    const max = Math.max(c.r, c.g, c.b);
+    const min = Math.min(c.r, c.g, c.b);
+    const boost = 1.3;
+    const avg = (c.r + c.g + c.b) / 3;
+    return {
+      r: Math.min(255, Math.round(avg + (c.r - avg) * boost)),
+      g: Math.min(255, Math.round(avg + (c.g - avg) * boost)),
+      b: Math.min(255, Math.round(avg + (c.b - avg) * boost))
+    };
+  });
 }
 
 // ===== Lyrics System =====
@@ -3512,22 +3677,7 @@ function renderSyncedLyrics(lines) {
   contentEl.querySelectorAll('.np-lyric-line').forEach(el => {
     el.addEventListener('click', () => {
 
-      // SHARE MODE LOGIC
-      if (isLyricShareMode) {
-        const idx = parseInt(el.dataset.lyricIndex);
-        if (selectedLyricIndexes.includes(idx)) {
-          selectedLyricIndexes = selectedLyricIndexes.filter(i => i !== idx);
-          el.classList.remove('selected-for-share');
-        } else {
-          if (selectedLyricIndexes.length < 2) {
-            selectedLyricIndexes.push(idx);
-            el.classList.add('selected-for-share');
-          }
-        }
-        document.getElementById('lyrics-share-count').textContent = `${selectedLyricIndexes.length}/2 Seçildi`;
-        document.getElementById('btn-share-continue').disabled = selectedLyricIndexes.length === 0;
-        return;
-      }
+
       const time = parseFloat(el.dataset.lyricTime);
       if (!isNaN(time) && player.audio.duration) {
         player.audio.currentTime = time;
@@ -3872,7 +4022,7 @@ function loadNowPlayingMoreSongs(currentSong) {
   }).join('');
 }
 
-function loadNowPlayingCredits(song) {
+async function loadNowPlayingCredits(song) {
   const container = document.getElementById('np-credits-list');
   const section = document.getElementById('np-credits');
   if (!container || !song) return;
@@ -3883,13 +4033,28 @@ function loadNowPlayingCredits(song) {
   // Parse multi-artist (comma-separated)
   const artistNames = song.artist ? song.artist.split(',').map(a => a.trim()).filter(Boolean) : [];
   
-  artistNames.forEach((name, idx) => {
+  for (let idx = 0; idx < artistNames.length; idx++) {
+    const name = artistNames[idx];
+    
+    let avatarUrl = null;
+    try {
+      if (typeof getArtistByName === 'function') {
+        const artistProfile = await getArtistByName(name);
+        if (artistProfile && artistProfile.avatar_url) {
+          avatarUrl = artistProfile.avatar_url;
+        }
+      }
+    } catch (e) {
+      console.log('Credits artist fetch error:', e);
+    }
+    
     credits.push({
       name: name,
       role: idx === 0 ? 'Ana Sanatçı' : 'İşbirliği',
-      isArtist: true
+      isArtist: true,
+      avatarUrl: avatarUrl
     });
-  });
+  }
 
   // If album exists, show album info
   if (song.album) {
@@ -3905,9 +4070,13 @@ function loadNowPlayingCredits(song) {
   container.innerHTML = credits.map(credit => {
     let avatarHtml;
     if (credit.isArtist) {
-      const initials = getInitials(credit.name);
-      const color = getAvatarColor(credit.name);
-      avatarHtml = `<div style="width:100%;height:100%;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff">${initials}</div>`;
+      if (credit.avatarUrl) {
+        avatarHtml = `<img src="${credit.avatarUrl}" alt="${escapeHtml(credit.name)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+      } else {
+        const initials = getInitials(credit.name);
+        const color = getAvatarColor(credit.name);
+        avatarHtml = `<div style="width:100%;height:100%;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff">${initials}</div>`;
+      }
     } else if (credit.isAlbum) {
       avatarHtml = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" style="color:var(--tm)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>`;
     } else {
@@ -4010,7 +4179,7 @@ async function openArtistProfile(artistName) {
                 <div class="song-list-cover">${coverHtml}</div>
                 <div class="song-list-details">
                   <div class="song-list-title">${escapeHtml(song.title)}</div>
-                  <div class="song-list-subtitle">${escapeHtml(song.artist)}${getVerifiedTick(song.artist)}</div>
+                  <div class="song-list-subtitle">${formatArtistLinks(song.artist)}</div>
                 </div>
               </div>
               <div class="song-list-album">${escapeHtml(song.album || '—')}</div>
@@ -4167,7 +4336,7 @@ function renderQueuePanel() {
         <div class="queue-item-cover">${coverHtml}</div>
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(currentSong.title)}</div>
-          <div class="queue-item-artist">${escapeHtml(currentSong.artist)}</div>
+          <div class="queue-item-artist">${formatArtistLinks(currentSong.artist)}</div>
         </div>
       </div>`;
   } else {
@@ -4346,7 +4515,7 @@ function initBannerUpload() {
       try {
         const sb = getSupabase();
         const ext = file.name.split('.').pop();
-        const fileName = `${currentUserId}-banner-${Date.now()}.${ext}`;
+        const fileName = `${currentUserId}/banner-${Date.now()}.${ext}`;
         const { error: uploadError } = await sb.storage.from('avatars').upload(fileName, file, { upsert: true, contentType: file.type });
         if (uploadError) { showToast('Yükleme hatası', 'error'); return; }
         const { data: urlData } = sb.storage.from('avatars').getPublicUrl(fileName);
@@ -4611,6 +4780,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initFrameSelector();
     initBannerUpload();
     initOfflineDownload();
+    initNowPlayingOverlay();
+    initMiniPlayerButton();
   }, 300);
 });
 
@@ -4618,41 +4789,81 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== Lyric Sharing =====
 function initLyricShare() {
   const btnShare = document.getElementById('btn-share-lyrics');
-  const actionBar = document.getElementById('lyrics-share-action-bar');
-  const btnCancel = document.getElementById('btn-share-cancel');
-  const btnContinue = document.getElementById('btn-share-continue');
+  const overlaySelection = document.getElementById('overlay-lyrics-selection');
+  const selectionList = document.getElementById('lyrics-selection-list');
+  const btnCancelSelection = document.getElementById('btn-share-cancel');
+  const btnContinueSelection = document.getElementById('btn-share-continue');
   const countSpan = document.getElementById('lyrics-share-count');
   
-  if (!btnShare || !actionBar) return;
+  if (!btnShare || !overlaySelection) return;
 
-  function resetShareMode() {
-    isLyricShareMode = false;
+  function resetSelectionMode() {
     selectedLyricIndexes = [];
-    actionBar.style.display = 'none';
-    document.querySelectorAll('.np-lyric-line.selected-for-share').forEach(el => el.classList.remove('selected-for-share'));
-    btnContinue.disabled = true;
+    if(overlaySelection) overlaySelection.style.display = 'none';
+    selectionList.innerHTML = '';
+    btnContinueSelection.disabled = true;
     countSpan.textContent = '0/2 Seçildi';
   }
 
   btnShare.addEventListener('click', () => {
-    if(!parsedSyncedLyrics || parsedSyncedLyrics.length === 0) return;
-    if(isLyricShareMode) resetShareMode();
-    else {
-      isLyricShareMode = true;
-      selectedLyricIndexes = [];
-      actionBar.style.display = 'flex';
-      btnContinue.disabled = true;
-      countSpan.textContent = '0/2 Seçildi';
+    if(!parsedSyncedLyrics || parsedSyncedLyrics.length === 0) {
+      showToast('Paylaşılacak şarkı sözü bulunamadı', 'error');
+      return;
     }
+
+    // Pause the song
+    if (player.isPlaying) {
+      player.audio.pause();
+      player.isPlaying = false;
+      player.updatePlayButton();
+    }
+
+    selectedLyricIndexes = [];
+    btnContinueSelection.disabled = true;
+    countSpan.textContent = '0/2 Seçildi';
+
+    // Populate selection list
+    selectionList.innerHTML = '';
+    parsedSyncedLyrics.forEach((line, i) => {
+      const text = line.text || '';
+      const isInstrumental = text === '' || text === '♪' || text === '♫';
+      if (isInstrumental) return;
+
+      const div = document.createElement('div');
+      div.className = 'share-lyric-line';
+      div.textContent = text;
+      div.dataset.index = i;
+      
+      div.addEventListener('click', () => {
+        const idx = parseInt(div.dataset.index);
+        if (selectedLyricIndexes.includes(idx)) {
+          selectedLyricIndexes = selectedLyricIndexes.filter(x => x !== idx);
+          div.classList.remove('selected-for-share');
+        } else {
+          if (selectedLyricIndexes.length < 2) {
+            selectedLyricIndexes.push(idx);
+            div.classList.add('selected-for-share');
+          } else {
+             showToast('En fazla 2 satır seçebilirsiniz', 'warning');
+          }
+        }
+        countSpan.textContent = `${selectedLyricIndexes.length}/2 Seçildi`;
+        btnContinueSelection.disabled = selectedLyricIndexes.length === 0;
+      });
+      
+      selectionList.appendChild(div);
+    });
+
+    if(overlaySelection) overlaySelection.style.display = 'flex';
   });
 
-  btnCancel.addEventListener('click', resetShareMode);
+  btnCancelSelection.addEventListener('click', resetSelectionMode);
+  document.getElementById('btn-close-lyrics-selection')?.addEventListener('click', resetSelectionMode);
 
-  // Line selection logic is handled in the lyrical click listener below.
   // Generate Card Button
-  btnContinue.addEventListener('click', () => {
+  btnContinueSelection.addEventListener('click', () => {
     if (selectedLyricIndexes.length === 0) return;
-    const song = player.currentSong;
+    const song = player.getCurrentSong();
     if (!song) return;
 
     // Collect texts
@@ -4667,19 +4878,36 @@ function initLyricShare() {
     const coverUrl = song.cover_url || '';
     document.getElementById('card-cover-img').src = coverUrl;
 
-    const modal = document.getElementById('modal-share-lyrics');
+    const overlayShare = document.getElementById('overlay-share-lyrics');
     const preview = document.getElementById('share-lyrics-preview-container');
     const downloadBtn = document.getElementById('btn-download-lyric-card');
     
     preview.innerHTML = '<div class="spinner"></div>';
-    modal.classList.remove('modal-hidden');
+    resetSelectionMode(); // Close selection modal
+    if(overlayShare) overlayShare.style.display = 'flex'; // Open preview modal
 
     setTimeout(() => {
       if(typeof html2canvas === 'undefined') {
         preview.innerHTML = '<p style="color:white;padding:20px">html2canvas yüklenemedi.</p>';
         return;
       }
+      
       const template = document.getElementById('lyric-card-template');
+      const bgEl = document.getElementById('np-canvas-bg');
+      if (bgEl) {
+        const c1Raw = bgEl.style.getPropertyValue('--canvas-color-1');
+        const c2Raw = bgEl.style.getPropertyValue('--canvas-color-2');
+        const toRgb = (rgbaStr) => {
+          if (!rgbaStr) return null;
+          const match = rgbaStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+          if (match) return `rgb(${match[1]}, ${match[2]}, ${match[3]})`;
+          return null;
+        };
+        const c1 = toRgb(c1Raw) || '#1DB954';
+        const c2 = toRgb(c2Raw) || '#450af5';
+        template.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+      }
+
       html2canvas(template, { scale: 1, useCORS: true, backgroundColor: null }).then(canvas => {
         const dataUrl = canvas.toDataURL('image/png');
         preview.innerHTML = `<img src="${dataUrl}" style="width:100%; height:auto; display:block">`;
@@ -4694,12 +4922,37 @@ function initLyricShare() {
         preview.innerHTML = '<p style="color:white;padding:20px">Resim oluşturulamadı.</p>';
       });
     }, 100);
-
-    resetShareMode();
   });
 
   // Modal close
   document.getElementById('btn-close-share-lyrics')?.addEventListener('click', () => {
-    document.getElementById('modal-share-lyrics').classList.add('modal-hidden');
+    const overlayShare = document.getElementById('overlay-share-lyrics');
+    if(overlayShare) overlayShare.style.display = 'none';
+  });
+}
+
+// ===== Mini Player Button =====
+function initMiniPlayerButton() {
+  const btn = document.getElementById('btn-mini-player');
+  if (!btn) return;
+
+  // Only show in Electron
+  if (!window.electronAPI || !window.electronAPI.toggleMiniPlayer) {
+    btn.style.display = 'none';
+    return;
+  }
+
+  btn.addEventListener('click', () => {
+    const song = player.getCurrentSong();
+    if (song) {
+      // Send current song data before toggling
+      window.electronAPI.updateMiniPlayer({
+        title: song.title,
+        artist: song.artist,
+        cover_url: song.cover_url || '',
+        isPlaying: player.isPlaying
+      });
+    }
+    window.electronAPI.toggleMiniPlayer();
   });
 }

@@ -57,12 +57,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const { data: profile } = await sb.from('profiles').select('is_banned').eq('id', user.id).maybeSingle();
           
           if (!profile) {
-            // Profile deleted — sign out
-            await sb.auth.signOut();
-            showToast('Bu hesap silinmiş.', 'error');
-            btn.classList.remove('loading');
-            btn.querySelector('span').textContent = 'Giriş Yap';
-            return;
+            // Profil yoksa, trigger eksikliğinden dolayı oluşmamış olabilir. Manuel oluşturalım.
+            try {
+              const username = user.user_metadata?.username || user.user_metadata?.full_name || email.split('@')[0] || 'Kullanıcı';
+              await sb.from('profiles').insert({ id: user.id, username: username });
+            } catch (err) {
+              console.log('Profil oluşturma hatası:', err);
+            }
           }
           
           if (profile.is_banned) {
@@ -247,9 +248,16 @@ function startSessionPolling() {
         // Check ban status
         const sb = getSupabase();
         const { data: profile } = await sb.from('profiles').select('is_banned').eq('id', session.user.id).maybeSingle();
-        if (!profile || profile.is_banned) {
+        if (!profile) {
+          try {
+            const username = session.user.user_metadata?.username || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Kullanıcı';
+            await sb.from('profiles').insert({ id: session.user.id, username: username });
+          } catch (err) {
+            console.log('Profil oluşturma hatası:', err);
+          }
+        } else if (profile.is_banned) {
           await sb.auth.signOut();
-          showToast(profile?.is_banned ? 'Hesabınız engellenmiştir.' : 'Bu hesap silinmiş.', 'error');
+          showToast('Hesabınız engellenmiştir.', 'error');
           return;
         }
         
@@ -280,7 +288,14 @@ async function checkSession() {
       // Check ban status before auto-login
       const sb = getSupabase();
       const { data: profile } = await sb.from('profiles').select('is_banned').eq('id', session.user.id).maybeSingle();
-      if (!profile || profile.is_banned) {
+      if (!profile) {
+        try {
+          const username = session.user.user_metadata?.username || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Kullanıcı';
+          await sb.from('profiles').insert({ id: session.user.id, username: username });
+        } catch (err) {
+          console.log('Profil oluşturma hatası:', err);
+        }
+      } else if (profile.is_banned) {
         await sb.auth.signOut();
         return; // Stay on auth page
       }

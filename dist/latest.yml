@@ -1,8 +1,8 @@
-version: 1.1.1
+version: 1.1.2
 files:
-  - url: Bekofy-Setup-1.1.1.exe
-    sha512: R1Vre484W2kbjAWNXn/wQFPjVCXAnvjdMfCX8Za07fFDrr56jEUGMdIZrpAuZGJzmasOqQwlCuhEum506jQ+YQ==
-    size: 100455423
-path: Bekofy-Setup-1.1.1.exe
-sha512: R1Vre484W2kbjAWNXn/wQFPjVCXAnvjdMfCX8Za07fFDrr56jEUGMdIZrpAuZGJzmasOqQwlCuhEum506jQ+YQ==
-releaseDate: '2026-04-14T21:22:13.996Z'
+  - url: Bekofy-Setup-1.1.2.exe
+    sha512: 51JAvIyZdCXAd3TjMdGY9MferdoQgPxthHzArqa/hVquDO6LdF3j/EtavMici4tMe4bZi+DLxNwyJJ3v6CCJbA==
+    size: 100781354
+path: Bekofy-Setup-1.1.2.exe
+sha512: 51JAvIyZdCXAd3TjMdGY9MferdoQgPxthHzArqa/hVquDO6LdF3j/EtavMici4tMe4bZi+DLxNwyJJ3v6CCJbA==
+releaseDate: '2026-04-17T20:41:02.041Z'

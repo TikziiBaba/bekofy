@@ -29,6 +29,17 @@ async function signUpWithEmail(email, password, username) {
       data: { username }
     }
   });
+  if (data?.user && !error) {
+    try {
+      await sb.from('profiles').insert({
+        id: data.user.id,
+        username: username
+      });
+    } catch (err) {
+      console.log('Profile creation warning:', err);
+    }
+  }
+
   return { data, error };
 }
 
@@ -610,8 +621,8 @@ async function uploadPlaylistCover(playlistId, file) {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return { data: null, error: { message: 'Oturum bulunamadı' } };
   
-  // FLAT FILE PATH! No slashes. Exactly like profile photo: userId-playlistId-time.jpg
-  const fileName = `${user.id}-playlist-${playlistId}-${Date.now()}.${ext}`;
+  // Use folder path matching user ID for Supabase Storage RLS policy compatibility
+  const fileName = `${user.id}/playlist-${playlistId}-${Date.now()}.${ext}`;
   
   try {
     const { error: uploadError } = await sb.storage
