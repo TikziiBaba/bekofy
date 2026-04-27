@@ -48,7 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const { data, error } = await signInWithEmail(email, password);
       if (error) {
-        showToast(error.message || 'Giriş başarısız', 'error');
+        console.error('Giriş Hatası Detayı:', error);
+        let errorMsg = error.message;
+        if (!errorMsg || errorMsg === '{}' || errorMsg === '[object Object]') {
+          errorMsg = 'Giriş başarısız: E-posta veya şifre hatalı.';
+        }
+        showToast(errorMsg, 'error');
       } else {
         // Check if user is banned or deleted
         const user = data?.user;
@@ -66,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
           
-          if (profile.is_banned) {
+          if (profile && profile.is_banned) {
             await sb.auth.signOut();
             showToast('Hesabınız engellenmiştir. Yönetici ile iletişime geçin.', 'error');
             btn.classList.remove('loading');
@@ -81,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
       }
     } catch (err) {
+      console.error('Beklenmeyen Giriş Hatası:', err);
       showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
     }
 
@@ -120,7 +126,20 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const { data, error } = await signUpWithEmail(email, password, username);
       if (error) {
-        showToast(error.message || 'Kayıt başarısız', 'error');
+        console.error('Kayıt Hatası Detayı:', error);
+        let errorMsg = error.message;
+        
+        // Network / timeout hataları
+        if (error.name === 'AuthRetryableFetchError' || error.status === 504 || error.status === 502 || error.status === 503) {
+          errorMsg = 'Sunucu şu anda yanıt vermiyor. Lütfen birkaç dakika bekleyip tekrar deneyin.';
+        } else if (error.status === 429) {
+          errorMsg = 'Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.';
+        } else if (error.status === 422 || (errorMsg && errorMsg.toLowerCase().includes('already registered'))) {
+          errorMsg = 'Bu e-posta adresi zaten kullanımda.';
+        } else if (!errorMsg || errorMsg === '{}' || errorMsg === '[object Object]') {
+          errorMsg = 'Kayıt başarısız. Lütfen tekrar deneyin.';
+        }
+        showToast(errorMsg, 'error');
       } else {
         showToast('Kayıt başarılı! Giriş yapabilirsiniz.', 'success');
         setTimeout(() => {
@@ -129,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
       }
     } catch (err) {
+      console.error('Beklenmeyen Kayıt Hatası:', err);
       showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
     }
 

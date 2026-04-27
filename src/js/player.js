@@ -18,6 +18,15 @@ class MusicPlayer {
     this.audio.addEventListener('ended', () => this.onEnded());
     this.audio.addEventListener('loadedmetadata', () => this.onLoaded());
     this.audio.addEventListener('error', (e) => this.onError(e));
+    
+    // Visualizer variables
+    this.audioCtx = null;
+    this.analyser = null;
+    this.source = null;
+    this.canvas = null;
+    this.canvasCtx = null;
+    this.animationId = null;
+    this.isFullscreen = false;
   }
 
   saveState(song) {
@@ -54,8 +63,13 @@ class MusicPlayer {
     }
 
     try {
+      this.initVisualizer();
       const url = await getSongUrl(song.file_path);
       this.audio.src = url;
+      // Because audio context needs user interaction to resume
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
       this.audio.play();
       this.isPlaying = true;
       this.updateUI(song);
@@ -157,6 +171,14 @@ class MusicPlayer {
     document.getElementById('progress-bar-knob').style.left = percent + '%';
     document.getElementById('time-current').textContent = this.formatTime(currentTime);
 
+    // Fullscreen progress sync
+    const fsFill = document.getElementById('fs-progress-bar-fill');
+    const fsKnob = document.getElementById('fs-progress-bar-knob');
+    const fsTime = document.getElementById('fs-time-current');
+    if (fsFill) fsFill.style.width = percent + '%';
+    if (fsKnob) fsKnob.style.left = percent + '%';
+    if (fsTime) fsTime.textContent = this.formatTime(currentTime);
+
     // Mini Player progress sync
     if (window.electronAPI && window.electronAPI.updateMiniPlayerProgress) {
       window.electronAPI.updateMiniPlayerProgress({ percent });
@@ -165,6 +187,10 @@ class MusicPlayer {
 
   onLoaded() {
     document.getElementById('time-total').textContent = this.formatTime(this.audio.duration);
+    
+    // Fullscreen total time sync
+    const fsTimeTotal = document.getElementById('fs-time-total');
+    if (fsTimeTotal) fsTimeTotal.textContent = this.formatTime(this.audio.duration);
     
     // Şarkının tam süresi yüklendiğinde Discord RPC'ye gönder
     const song = this.getCurrentSong();
@@ -194,6 +220,96 @@ class MusicPlayer {
     showToast('Şarkı yüklenirken hata oluştu', 'error');
   }
 
+  initVisualizer() {
+    if (this.audioCtx) return; // Zaten yüklüyse tekrar oluşturma
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      this.audioCtx = new AudioContext();
+      this.analyser = this.audioCtx.createAnalyser();
+      
+      // Çapraz köken koruması için
+      this.audio.crossOrigin = "anonymous";
+      
+      this.source = this.audioCtx.createMediaElementSource(this.audio);
+      this.source.connect(this.analyser);
+      this.analyser.connect(this.audioCtx.destination);
+      
+      this.analyser.fftSize = 256;
+      
+      this.canvas = document.getElementById('fs-visualizer');
+      if (this.canvas) {
+        this.canvasCtx = this.canvas.getContext('2d');
+      }
+    } catch (e) {
+      console.warn('Web Audio API desteklenmiyor veya engellendi:', e);
+    }
+  }
+
+  drawVisualizer() {
+    if (!this.isFullscreen || !this.analyser || !this.canvas || !this.canvasCtx) return;
+    
+    this.animationId = requestAnimationFrame(() => this.drawVisualizer());
+    
+    const bufferLength = this.analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    this.analyser.getByteFrequencyData(dataArray);
+    
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    
+    this.canvasCtx.clearRect(0, 0, width, height);
+    
+    const barWidth = (width / bufferLength) * 2.5;
+    let barHeight;
+    let x = 0;
+    
+    for (let i = 0; i < bufferLength; i++) {
+      barHeight = dataArray[i];
+      
+      // Yeşil ve beyaz geçişli frekans çubukları
+      const r = 29;
+      const g = 185;
+      const b = 84;
+      const alpha = barHeight / 255;
+      
+      this.canvasCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      this.canvasCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+      
+      x += barWidth + 2;
+    }
+  }
+
+  toggleFullscreen() {
+    const fsPlayer = document.getElementById('fs-player');
+    if (!fsPlayer) return;
+    
+    this.isFullscreen = !this.isFullscreen;
+    
+    if (this.isFullscreen) {
+      fsPlayer.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      
+      // Set canvas size
+      if (this.canvas) {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight * 0.4;
+      }
+      
+      // Ensure audio context is running
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+      
+      this.drawVisualizer();
+    } else {
+      fsPlayer.classList.remove('active');
+      document.body.style.overflow = '';
+      if (this.animationId) {
+        cancelAnimationFrame(this.animationId);
+      }
+    }
+  }
+
   // UI Updates
   updateUI(song) {
     document.getElementById('now-playing-title').textContent = song.title;
@@ -201,21 +317,51 @@ class MusicPlayer {
     
     const cover = document.getElementById('now-playing-cover');
     if (song.cover_url) {
-      cover.innerHTML = `<img src="${song.cover_url}" alt="${song.title}">`;
+      cover.innerHTML = `<img src="${song.cover_url}" alt="${song.title}" id="now-playing-img" crossorigin="anonymous">`;
+      
+      // Update fullscreen UI
+      const fsImg = document.getElementById('fs-vinyl-img');
+      if (fsImg) fsImg.src = song.cover_url;
     } else {
       cover.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" opacity="0.3" width="40" height="40"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+      
+      const fsImg = document.getElementById('fs-vinyl-img');
+      if (fsImg) fsImg.src = '';
+    }
+    
+    // Update fullscreen text
+    const fsTitle = document.getElementById('fs-title');
+    const fsArtist = document.getElementById('fs-artist');
+    if (fsTitle) fsTitle.textContent = song.title;
+    if (fsArtist) fsArtist.textContent = song.artist || '';
+    
+    // Update queue panel if function exists
+    if (typeof renderQueuePanel === 'function') {
+      renderQueuePanel();
     }
   }
+
+
 
   updatePlayButton() {
     const playIcon = document.getElementById('icon-play');
     const pauseIcon = document.getElementById('icon-pause');
+    const fsPlayIcon = document.getElementById('fs-icon-play');
+    const fsPauseIcon = document.getElementById('fs-icon-pause');
+    const fsVinyl = document.getElementById('fs-vinyl');
+    
     if (this.isPlaying) {
-      playIcon.style.display = 'none';
-      pauseIcon.style.display = 'block';
+      if (playIcon) playIcon.style.display = 'none';
+      if (pauseIcon) pauseIcon.style.display = 'block';
+      if (fsPlayIcon) fsPlayIcon.style.display = 'none';
+      if (fsPauseIcon) fsPauseIcon.style.display = 'block';
+      if (fsVinyl) fsVinyl.classList.add('playing');
     } else {
-      playIcon.style.display = 'block';
-      pauseIcon.style.display = 'none';
+      if (playIcon) playIcon.style.display = 'block';
+      if (pauseIcon) pauseIcon.style.display = 'none';
+      if (fsPlayIcon) fsPlayIcon.style.display = 'block';
+      if (fsPauseIcon) fsPauseIcon.style.display = 'none';
+      if (fsVinyl) fsVinyl.classList.remove('playing');
     }
   }
 
