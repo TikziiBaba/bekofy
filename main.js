@@ -163,6 +163,13 @@ function createMiniPlayer() {
 
   miniPlayerWindow.loadFile('src/pages/mini-player.html');
 
+  // When mini-player finishes loading, request current song data from main window
+  miniPlayerWindow.webContents.on('did-finish-load', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('mini-command', 'request-current-song');
+    }
+  });
+
   // Position bottom-right of screen
   const { screen } = require('electron');
   const display = screen.getPrimaryDisplay();
@@ -313,8 +320,10 @@ app.whenReady().then(() => {
   // Discord Rich Presence başlat
   initDiscordRPC();
 
-  // Otomatik güncellemeleri kontrol et
-  autoUpdater.checkForUpdatesAndNotify();
+  // Otomatik güncellemeleri kontrol et (dev modda sessizce atla)
+  autoUpdater.checkForUpdatesAndNotify().catch(err => {
+    console.log('[AutoUpdater] Güncelleme kontrolü atlandı:', err.message);
+  });
 });
 
 // Güncelleme bulunduğunda

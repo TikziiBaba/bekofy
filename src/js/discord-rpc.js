@@ -24,11 +24,12 @@ let isFirstConnectionAttempt = true;
 async function initDiscordRPC() {
   if (rpcClient) {
     try {
-      rpcClient.destroy();
+      await rpcClient.destroy().catch(() => {});
     } catch (e) {
       // ignore
     }
     rpcClient = null;
+    isConnected = false;
   }
 
   try {
@@ -46,7 +47,14 @@ async function initDiscordRPC() {
         console.log('[Discord RPC] Disconnected');
       }
       isConnected = false;
+      rpcClient = null;
       scheduleReconnect();
+    });
+
+    // Catch unhandled errors on the transport
+    rpcClient.transport?.on?.('error', () => {
+      isConnected = false;
+      rpcClient = null;
     });
 
     await rpcClient.login({ clientId: CLIENT_ID });
@@ -56,9 +64,21 @@ async function initDiscordRPC() {
       isFirstConnectionAttempt = false;
     }
     isConnected = false;
+    rpcClient = null;
     scheduleReconnect();
   }
 }
+
+// Global unhandled rejection catcher for Discord RPC transport errors
+process.on('unhandledRejection', (reason) => {
+  const msg = String(reason?.message || reason || '');
+  if (msg.includes('write') || msg.includes('ipc') || msg.includes('ENOENT') || msg.includes('close')) {
+    console.log('[Discord RPC] Suppressed transport error:', msg);
+    isConnected = false;
+    rpcClient = null;
+    return;
+  }
+});
 
 function scheduleReconnect() {
   clearReconnectTimer();
@@ -78,6 +98,12 @@ function clearReconnectTimer() {
 
 async function updatePresence(songData) {
   if (!rpcClient || !isConnected) return;
+
+  // Şarkı duraklatıldıysa activity'yi tamamen kaldır
+  if (!songData.isPlaying) {
+    await clearPresence();
+    return;
+  }
 
   try {
     // Spotify tarzı activity objesi oluştur

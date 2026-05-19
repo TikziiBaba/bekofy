@@ -666,21 +666,41 @@ async function checkFriendshipInternal(targetUserId) {
 
 async function uploadPlaylistCover(playlistId, file) {
   const sb = getSupabase();
-  const ext = file.name.split('.').pop();
+  const ext = file.name.split('.').pop().toLowerCase();
+  
+  // Validate file type
+  const allowedTypes = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+  if (!allowedTypes.includes(ext)) {
+    return { data: null, error: { message: 'Desteklenmeyen dosya format. (jpg, png, webp, gif)' } };
+  }
   
   // Get current user's ID for storage policy compatibility
   const { data: { user } } = await sb.auth.getUser();
-  if (!user) return { data: null, error: { message: 'Oturum bulunamadı' } };
+  if (!user) return { data: null, error: { message: 'Oturum bulunamad.' } };
   
-  // Use folder path matching user ID for Supabase Storage RLS policy compatibility
-  const fileName = `${user.id}/playlist-${playlistId}-${Date.now()}.${ext}`;
+  // Use user's folder in avatars bucket (same pattern as avatar upload which works)
+  const fileName = user.id + '/playlist_cover_' + playlistId + '.' + ext;
   
   try {
+    // First, try to remove old cover files for this playlist to avoid accumulation
+    try {
+      const { data: existingFiles } = await sb.storage
+        .from('avatars')
+        .list(user.id, { search: 'playlist_cover_' + playlistId });
+      if (existingFiles && existingFiles.length > 0) {
+        const filesToRemove = existingFiles.map(f => user.id + '/' + f.name);
+        await sb.storage.from('avatars').remove(filesToRemove);
+      }
+    } catch (cleanErr) {
+      console.log('Old cover cleanup skipped:', cleanErr);
+    }
+    
     const { error: uploadError } = await sb.storage
       .from('avatars')
       .upload(fileName, file, { 
         upsert: true,
-        contentType: file.type
+        contentType: file.type || 'image/' + ext,
+        cacheControl: '3600'
       });
       
     if (uploadError) {
@@ -692,9 +712,15 @@ async function uploadPlaylistCover(playlistId, file) {
       .from('avatars')
       .getPublicUrl(fileName);
     
-    // Update the playlist row in the database since the user might complain it doesn't persist
+    // Add cache-busting timestamp
     const coverUrl = urlData.publicUrl + '?t=' + Date.now();
-    await sb.from('playlists').update({ cover_url: coverUrl }).eq('id', playlistId);
+    
+    // Update the playlist record with the new cover URL
+    const { error: updateError } = await sb.from('playlists').update({ cover_url: coverUrl }).eq('id', playlistId);
+    if (updateError) {
+      console.error('Playlist cover_url update error:', updateError);
+      // Still return the URL since upload succeeded
+    }
     
     return { data: coverUrl, error: null };
   } catch (err) {
@@ -702,6 +728,7 @@ async function uploadPlaylistCover(playlistId, file) {
     return { data: null, error: err };
   }
 }
+
 // ===== Collaborative Playlists =====
 async function getPlaylistCollaborators(playlistId) {
   const sb = getSupabase();
@@ -1155,4 +1182,196 @@ async function getLyrics(song) {
   }
 
   return null;
+}
+
+// ===== Jam Session Functions (Birlikte Dinleme) =====
+
+function generateJamCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function createJamSession(hostId) {
+  const sb = getSupabase();
+  const code = generateJamCode();
+  const { data, error } = await sb
+    .from('jam_sessions')
+    .insert({ code, host_id: hostId })
+    .select()
+    .single();
+  if (error) return { data: null, error };
+  // Host also joins as participant
+  await sb.from('jam_participants').insert({ session_id: data.id, user_id: hostId });
+  return { data, error: null };
+}
+
+async function findJamByCode(code) {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('jam_sessions')
+    .select('*')
+    .eq('code', code.toUpperCase().trim())
+    .single();
+  return { data, error };
+}
+
+async function joinJamSession(sessionId, userId) {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('jam_participants')
+    .insert({ session_id: sessionId, user_id: userId })
+    .select()
+    .single();
+  return { data, error };
+}
+
+async function leaveJamSession(sessionId, userId) {
+  const sb = getSupabase();
+  await sb
+    .from('jam_participants')
+    .delete()
+    .eq('session_id', sessionId)
+    .eq('user_id', userId);
+}
+
+async function endJamSession(sessionId) {
+  const sb = getSupabase();
+  // Delete participants first (cascade should handle but be safe)
+  await sb.from('jam_participants').delete().eq('session_id', sessionId);
+  await sb.from('jam_sessions').delete().eq('id', sessionId);
+}
+
+async function updateJamState(sessionId, songId, isPlaying, position) {
+  const sb = getSupabase();
+  await sb
+    .from('jam_sessions')
+    .update({
+      current_song_id: songId,
+      is_playing: isPlaying,
+      current_position: position,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', sessionId);
+}
+
+async function getJamParticipants(sessionId) {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('jam_participants')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('joined_at', { ascending: true });
+
+  if (data && data.length > 0) {
+    const userIds = data.map(p => p.user_id);
+    const { data: profiles } = await sb.from('profiles').select('id, username, avatar_url').in('id', userIds);
+    return data.map(p => ({
+      ...p,
+      profiles: profiles?.find(prof => prof.id === p.user_id) || null
+    }));
+  }
+  return [];
+}
+
+async function getJamSession(sessionId) {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from('jam_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single();
+  return data;
+}
+
+// Supabase Realtime Broadcast for Jam
+let _jamChannel = null;
+
+function subscribeToJam(sessionId, onEvent) {
+  const sb = getSupabase();
+  if (_jamChannel) {
+    sb.removeChannel(_jamChannel);
+    _jamChannel = null;
+  }
+
+  return new Promise((resolve) => {
+    _jamChannel = sb.channel(`jam:${sessionId}`, {
+      config: { broadcast: { self: false } }
+    });
+    _jamChannel
+      .on('broadcast', { event: 'jam_sync' }, (payload) => {
+        console.log('[Jam] Received sync event:', payload.payload?.type);
+        onEvent(payload.payload);
+      })
+      .on('broadcast', { event: 'jam_chat' }, (payload) => {
+        onEvent({ type: 'chat', ...payload.payload });
+      })
+      .subscribe((status) => {
+        console.log('[Jam] Channel status:', status);
+        if (status === 'SUBSCRIBED') {
+          resolve(true);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[Jam] Channel subscription failed:', status);
+          resolve(false);
+        }
+      });
+
+    // Safety timeout: resolve after 8 seconds even if no status callback fires
+    setTimeout(() => resolve(false), 8000);
+  });
+}
+
+function broadcastJamEvent(eventData) {
+  if (!_jamChannel) {
+    console.warn('[Jam] No active channel to broadcast on');
+    return;
+  }
+  console.log('[Jam] Broadcasting event:', eventData.type);
+  _jamChannel.send({
+    type: 'broadcast',
+    event: 'jam_sync',
+    payload: eventData
+  });
+}
+
+function unsubscribeFromJam() {
+  if (_jamChannel) {
+    const sb = getSupabase();
+    sb.removeChannel(_jamChannel);
+    _jamChannel = null;
+  }
+}
+
+// ===== User Profile Stats =====
+
+async function fetchUserStats(userId) {
+  const sb = getSupabase();
+  const [likedRes, playlistRes, followersRes, followingRes] = await Promise.all([
+    sb.from('liked_songs').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+    sb.from('playlists').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+    sb.from('friendships').select('*', { count: 'exact', head: true }).eq('friend_id', userId).eq('status', 'accepted'),
+    sb.from('friendships').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'accepted'),
+  ]);
+  return {
+    liked: likedRes.count || 0,
+    playlists: playlistRes.count || 0,
+    followers: followersRes.count || 0,
+    following: followingRes.count || 0,
+  };
+}
+
+function getUserBadges(stats, profile) {
+  const badges = [];
+  if (stats.liked >= 1) badges.push({ icon: '❤️', name: 'Müzik Sever', desc: 'İlk şarkını beğendin' });
+  if (stats.liked >= 10) badges.push({ icon: '🎵', name: 'Melodi Avcısı', desc: '10+ şarkı beğendin' });
+  if (stats.liked >= 50) badges.push({ icon: '🔥', name: 'Müzik Tutkunu', desc: '50+ şarkı beğendin' });
+  if (stats.playlists >= 1) badges.push({ icon: '📋', name: 'DJ Adayı', desc: 'İlk çalma listeni oluşturdun' });
+  if (stats.playlists >= 5) badges.push({ icon: '🎧', name: 'Küratör', desc: '5+ çalma listesi oluşturdun' });
+  if (stats.followers >= 1) badges.push({ icon: '⭐', name: 'Yükselen Yıldız', desc: 'İlk takipçini kazandın' });
+  if (stats.followers >= 10) badges.push({ icon: '🌟', name: 'Sosyal Kelebek', desc: '10+ takipçi' });
+  if (profile?.role === 'admin') badges.push({ icon: '👑', name: 'Admin', desc: 'Platform yöneticisi' });
+  if (profile?.role === 'artist') badges.push({ icon: '🎤', name: 'Sanatçı', desc: 'Doğrulanmış sanatçı' });
+  if (profile?.is_premium) badges.push({ icon: '💎', name: 'Premium', desc: 'Premium üye' });
+  return badges;
 }

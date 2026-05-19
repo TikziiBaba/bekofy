@@ -425,8 +425,83 @@ function setGreeting() {
   else if (hour < 12) greeting = 'Günaydın';
   else if (hour < 18) greeting = 'İyi Günler';
   else greeting = 'İyi Akşamlar';
-  const h1 = document.querySelector('#page-home .page-header h1');
+    const h1 = document.querySelector('#home-greeting');
+  const sub = document.querySelector('#greeting-subtitle');
   if (h1) h1.textContent = greeting;
+  if (sub) sub.textContent = 'Müziğin ritmini hisset';
+}
+
+async function renderHeroBanner() {
+  const heroSection = document.getElementById('hero-banner-section');
+  const heroTitle = document.getElementById('hero-banner-title');
+  const heroArtist = document.getElementById('hero-banner-artist');
+  const heroBg = document.getElementById('hero-banner-bg');
+  const playBtn = document.getElementById('hero-banner-play');
+
+  if (!heroSection || !allSongs.length) return;
+
+  const heroSong = allSongs[Math.floor(Math.random() * allSongs.length)];
+  
+  heroTitle.textContent = heroSong.title;
+  heroArtist.textContent = heroSong.artist;
+  if (heroSong.cover_url) {
+    heroBg.style.backgroundImage = `url('${heroSong.cover_url}')`;
+  }
+  
+  playBtn.onclick = () => {
+    player.playSong(heroSong, allSongs);
+  };
+  
+  heroSection.style.display = 'block';
+}
+
+async function renderDailyMixes() {
+  const section = document.getElementById('daily-mix-section');
+  const grid = document.getElementById('daily-mix-grid');
+  if (!section || !grid || !allSongs.length) return;
+
+  let mixes = JSON.parse(localStorage.getItem('bekofy_daily_mixes') || 'null');
+  const today = new Date().toDateString();
+
+  if (!mixes || mixes.date !== today) {
+    mixes = { date: today, data: [] };
+    const artists = [...new Set(allSongs.map(s => s.artist))].sort(() => 0.5 - Math.random());
+    for(let i=0; i<4 && i<artists.length; i++) {
+      const artistSongs = allSongs.filter(s => s.artist === artists[i]);
+      if(artistSongs.length > 0) {
+        mixes.data.push({
+          title: `${artists[i]} Mix`,
+          desc: `${artists[i]} ve benzerleri`,
+          songs: artistSongs,
+          cover: artistSongs[0].cover_url
+        });
+      }
+    }
+    localStorage.setItem('bekofy_daily_mixes', JSON.stringify(mixes));
+  }
+
+  if (mixes.data.length > 0) {
+    grid.innerHTML = mixes.data.map((mix, idx) => `
+      <div class="daily-mix-card" onclick="playDailyMix(${idx})">
+        <img src="${mix.cover || ''}" class="daily-mix-cover">
+        <div class="daily-mix-info">
+          <h4>${mix.title}</h4>
+          <p>${mix.desc}</p>
+        </div>
+        <button class="daily-mix-play">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>
+    `).join('');
+    section.style.display = 'block';
+
+    window.playDailyMix = (idx) => {
+      const mix = mixes.data[idx];
+      if (mix && mix.songs.length) {
+        player.playSong(mix.songs[0], mix.songs);
+      }
+    };
+  }
 }
 
 // ===== Load User Info & Ensure Profile =====
@@ -2013,8 +2088,7 @@ function initEditPlaylistModal() {
   });
   
   // Cover file selection
-  coverLabel.addEventListener('click', (e) => {
-    e.preventDefault();
+  coverLabel.addEventListener('click', () => {
     coverFileInput.value = '';
     coverFileInput.click();
   });
@@ -4602,6 +4676,97 @@ function cancelSleepTimer() {
   if (btn) btn.classList.remove('active');
 }
 
+// ===== CROSSFADE UI =====
+function initCrossfade() {
+  const btn = document.getElementById('btn-crossfade');
+  const popup = document.getElementById('crossfade-popup');
+  const toggle = document.getElementById('crossfade-toggle');
+  const durationSection = document.getElementById('crossfade-duration-section');
+  const durationValue = document.getElementById('crossfade-duration-value');
+  const sliderTrack = document.getElementById('crossfade-slider-track');
+  const sliderFill = document.getElementById('crossfade-slider-fill');
+  const sliderKnob = document.getElementById('crossfade-slider-knob');
+  if (!btn || !popup) return;
+
+  // Load saved state
+  toggle.checked = player.crossfadeEnabled;
+  btn.classList.toggle('active', player.crossfadeEnabled);
+  durationSection.style.opacity = player.crossfadeEnabled ? '1' : '0.4';
+  durationSection.style.pointerEvents = player.crossfadeEnabled ? 'auto' : 'none';
+  updateCrossfadeSlider(player.crossfadeDuration);
+
+  // Toggle popup
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const sleepPopup = document.getElementById('sleep-timer-popup');
+    if (sleepPopup) sleepPopup.style.display = 'none';
+    popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+  });
+
+  // Close popup on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.crossfade-wrapper')) {
+      popup.style.display = 'none';
+    }
+  });
+
+  // Toggle enable/disable
+  toggle.addEventListener('change', () => {
+    player.setCrossfade(toggle.checked, player.crossfadeDuration);
+    durationSection.style.opacity = toggle.checked ? '1' : '0.4';
+    durationSection.style.pointerEvents = toggle.checked ? 'auto' : 'none';
+    if (toggle.checked) {
+      showToast('Crossfade aktif 🎶', 'success');
+    } else {
+      showToast('Crossfade kapatıldı', 'info');
+    }
+  });
+
+  // Slider drag for duration
+  let isDragging = false;
+  const MIN_DURATION = 2;
+  const MAX_DURATION = 12;
+
+  function updateCrossfadeSlider(duration) {
+    const pct = ((duration - MIN_DURATION) / (MAX_DURATION - MIN_DURATION)) * 100;
+    sliderFill.style.width = pct + '%';
+    sliderKnob.style.left = pct + '%';
+    durationValue.textContent = duration + 's';
+  }
+
+  function handleSliderMove(clientX) {
+    const rect = sliderTrack.getBoundingClientRect();
+    let pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const duration = Math.round(MIN_DURATION + pct * (MAX_DURATION - MIN_DURATION));
+    updateCrossfadeSlider(duration);
+    player.setCrossfade(player.crossfadeEnabled, duration);
+  }
+
+  sliderTrack.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    handleSliderMove(e.clientX);
+    e.preventDefault();
+  });
+
+  sliderKnob.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isDragging) handleSliderMove(e.clientX);
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+
+  sliderTrack.addEventListener('click', (e) => {
+    handleSliderMove(e.clientX);
+  });
+}
+
 // ===== QUEUE PANEL =====
 let queuePanelOpen = false;
 
@@ -5256,3 +5421,338 @@ function initMiniPlayerButton() {
     window.electronAPI.toggleMiniPlayer();
   });
 }
+// ===== Premium Page Logic =====
+document.addEventListener('DOMContentLoaded', () => {
+  const btnUpgrade = document.getElementById('btn-premium-upgrade');
+  if (btnUpgrade) {
+    btnUpgrade.addEventListener('click', () => {
+      // Assuming localhost:8080 or localhost:3000 for local dev
+      // Use window.location.origin or simply hardcode for testing
+      const siteUrl = 'http://localhost:3000/checkout.html?plan=bireysel'; 
+      if (window.electronAPI && window.electronAPI.openExternal) {
+        window.electronAPI.openExternal(siteUrl);
+      } else {
+        window.open(siteUrl, '_blank');
+      }
+    });
+  }
+
+  // Update premium page UI based on user role
+  const updatePremiumPageUI = async () => {
+    try {
+      const sb = getSupabase();
+      if (!sb) return;
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return;
+
+      const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
+      if (profile && (profile.role === 'premium' || profile.role === 'admin')) {
+        const title = document.getElementById('premium-page-title');
+        const desc = document.getElementById('premium-page-desc');
+        if (title) title.textContent = 'Zaten Premium\'sun! ?';
+        if (desc) desc.textContent = 'Hesab�n zaten Premium seviyesinde. T�m �zelliklerin kilidi a��k.';
+        if (btnUpgrade) btnUpgrade.style.display = 'none';
+      }
+    } catch (err) {
+      console.log('Premium role check error:', err);
+    }
+  };
+
+  // Run on page load
+  updatePremiumPageUI();
+  
+  // also run when navigating to premium page
+  const premiumNav = document.getElementById('btn-top-premium');
+  if (premiumNav) {
+    premiumNav.addEventListener('click', updatePremiumPageUI);
+  }
+});
+
+
+// ===== Jam UI & Logic =====
+function initJamUI() {
+  const btnJam = document.getElementById('btn-jam');
+  const modal = document.getElementById('jam-modal');
+  const closeBtn = document.getElementById('jam-close');
+  const btnCreate = document.getElementById('btn-create-jam');
+  const btnJoin = document.getElementById('btn-join-jam');
+  const inputCode = document.getElementById('jam-code-input');
+  const btnLeave = document.getElementById('btn-leave-jam');
+
+  const createSection = document.getElementById('jam-create-section');
+  const activeSection = document.getElementById('jam-active-section');
+  const activeCodeText = document.getElementById('jam-active-code');
+  const activeBanner = document.getElementById('jam-active-banner');
+  const bannerCount = document.getElementById('jam-banner-count');
+  const bannerCode = document.getElementById('jam-banner-code');
+  const bannerLeave = document.getElementById('jam-banner-leave');
+
+  if (!btnJam) return;
+
+  const updateJamModalState = () => {
+    if (player.jamSessionId) {
+      createSection.style.display = 'none';
+      activeSection.style.display = 'block';
+      activeBanner.style.display = 'flex';
+      btnJam.classList.add('active');
+      btnJam.style.color = 'var(--primary-color)';
+    } else {
+      createSection.style.display = 'block';
+      activeSection.style.display = 'none';
+      activeBanner.style.display = 'none';
+      btnJam.classList.remove('active');
+      btnJam.style.color = '';
+    }
+  };
+
+  btnJam.addEventListener('click', () => {
+    modal.style.display = 'flex';
+    updateJamModalState();
+  });
+
+  closeBtn.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  btnCreate.addEventListener('click', async () => {
+    if (!currentUserId) {
+      showToast('Jam oluşturmak için giriş yapmalısınız', 'error');
+      return;
+    }
+    
+    btnCreate.innerHTML = '<div class="spinner" style="width:16px;height:16px;display:inline-block;"></div> Oluşturuluyor...';
+    btnCreate.disabled = true;
+
+    try {
+      const { data, error } = await createJamSession(currentUserId);
+      if (error) throw error;
+
+      activeCodeText.textContent = data.code;
+      bannerCode.textContent = '#' + data.code;
+      
+      player.setJamSession(data.id, true);
+      
+      const subscribed = await subscribeToJam(data.id, (payload) => {
+        player.handleJamEvent(payload);
+      });
+      
+      if (!subscribed) {
+        console.error('[Jam] Host channel subscription failed');
+        showToast('Jam kanalına bağlanılamadı, tekrar deneyin', 'error');
+        player.clearJamSession();
+        return;
+      }
+      
+      updateJamModalState();
+      refreshJamParticipants(data.id);
+      
+      // Save initial state if already playing a song
+      const currentSong = player.getCurrentSong();
+      if (currentSong) {
+        updateJamState(data.id, currentSong.id, player.isPlaying, player.audio.currentTime || 0)
+          .catch(err => console.warn('[Jam] Initial state save error:', err));
+      }
+      
+      // Share code to clipboard optionally
+      navigator.clipboard.writeText(data.code).then(() => {
+        showToast('Jam kodu panoya kopyalandı!', 'success');
+      });
+
+    } catch (err) {
+      console.error(err);
+      showToast('Jam oluşturulamadı', 'error');
+    } finally {
+      btnCreate.innerHTML = '✨ Jam Oluştur';
+      btnCreate.disabled = false;
+    }
+  });
+
+  btnJoin.addEventListener('click', async () => {
+    if (!currentUserId) {
+      showToast('Jam\'e katılmak için giriş yapmalısınız', 'error');
+      return;
+    }
+    
+    const code = inputCode.value.trim();
+    if (code.length !== 6) {
+      showToast('Geçerli bir kod girin', 'error');
+      return;
+    }
+
+    btnJoin.disabled = true;
+    try {
+      const { data: session, error: findErr } = await findJamByCode(code);
+      if (findErr || !session) throw new Error('Oturum bulunamadı');
+
+      await joinJamSession(session.id, currentUserId);
+      
+      activeCodeText.textContent = session.code;
+      bannerCode.textContent = '#' + session.code;
+      
+      player.setJamSession(session.id, false);
+      
+      const subscribed = await subscribeToJam(session.id, (payload) => {
+        player.handleJamEvent(payload);
+      });
+      
+      if (!subscribed) {
+        console.error('[Jam] Guest channel subscription failed');
+        showToast('Jam kanalına bağlanılamadı, tekrar deneyin', 'error');
+        player.clearJamSession();
+        return;
+      }
+      
+      updateJamModalState();
+      refreshJamParticipants(session.id);
+      
+      // Fetch current playback state from DB and sync
+      try {
+        const jamState = await getJamSession(session.id);
+        if (jamState && jamState.current_song_id) {
+          const songToPlay = (typeof allSongs !== 'undefined' ? allSongs : []).find(s => s.id === jamState.current_song_id);
+          if (songToPlay) {
+            await player.playSong(songToPlay, typeof allSongs !== 'undefined' ? allSongs : [songToPlay]);
+            // Seek to the approximate position (account for network delay)
+            if (jamState.current_position > 0) {
+              const elapsed = (Date.now() - new Date(jamState.updated_at).getTime()) / 1000;
+              const targetPos = jamState.is_playing ? jamState.current_position + elapsed : jamState.current_position;
+              player.audio.currentTime = Math.min(targetPos, player.audio.duration || targetPos);
+            }
+            if (!jamState.is_playing) {
+              player.audio.pause();
+              player.isPlaying = false;
+              player.updatePlayButton();
+            }
+          }
+        }
+      } catch (syncErr) {
+        console.warn('[Jam] Initial state sync error:', syncErr);
+      }
+      
+      showToast('Jam\'e katılıldı!', 'success');
+      
+    } catch (err) {
+      console.error(err);
+      showToast('Jam oturumu bulunamadı veya katılamadınız', 'error');
+    } finally {
+      btnJoin.disabled = false;
+    }
+  });
+
+  const leaveJam = async () => {
+    if (!player.jamSessionId) return;
+    try {
+      if (player.isJamHost) {
+        await endJamSession(player.jamSessionId);
+        player.broadcastJamAction('end_session');
+      } else {
+        await leaveJamSession(player.jamSessionId, currentUserId);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    player.clearJamSession();
+    unsubscribeFromJam();
+    updateJamModalState();
+    modal.style.display = 'none';
+  };
+
+  btnLeave.addEventListener('click', leaveJam);
+  bannerLeave.addEventListener('click', leaveJam);
+}
+
+async function refreshJamParticipants(sessionId) {
+  const list = document.getElementById('jam-participants-list');
+  const countEl = document.getElementById('jam-modal-count');
+  const bannerCount = document.getElementById('jam-banner-count');
+  if (!list || !sessionId) return;
+
+  try {
+    const participants = await getJamParticipants(sessionId);
+    countEl.textContent = participants.length;
+    bannerCount.textContent = participants.length + ' kişi';
+
+    list.innerHTML = participants.map(p => `
+      <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px;">
+        <img src="${p.profiles?.avatar_url || '../assets/default_avatar.png'}" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;">
+        <span style="flex: 1; font-size: 14px;">${p.profiles?.username || 'Kullanıcı'}</span>
+        ${p.user_id === player.jamSessionId ? '<span style="font-size: 10px; background: var(--primary-color); color: black; padding: 2px 6px; border-radius: 10px;">Kurucu</span>' : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Participant refresh err:', err);
+  }
+}
+
+// Called when the host ends the session (received by guests via broadcast)
+function onJamEnded() {
+  const activeBanner = document.getElementById('jam-active-banner');
+  if (activeBanner) activeBanner.style.display = 'none';
+  const btnJam = document.getElementById('btn-jam');
+  if (btnJam) {
+    btnJam.classList.remove('active');
+    btnJam.style.color = '';
+  }
+  const createSection = document.getElementById('jam-create-section');
+  const activeSection = document.getElementById('jam-active-section');
+  if (createSection) createSection.style.display = 'block';
+  if (activeSection) activeSection.style.display = 'none';
+  unsubscribeFromJam();
+}
+
+// Ensure initJamUI is called when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    initJamUI();
+    renderHeroBanner();
+    renderDailyMixes();
+  }, 1000);
+});
+
+
+// ===== Enhanced Profile Stats & Badges =====
+async function renderProfileEnhancedStats(userId) {
+  if (!userId) return;
+  const stats = await fetchUserStats(userId);
+  const profile = await fetchProfile(userId);
+  
+  const elPlaylists = document.getElementById('profile-stat-playlists');
+  const elLiked = document.getElementById('profile-stat-liked');
+  const elFollowers = document.getElementById('profile-stat-followers');
+  const elFollowing = document.getElementById('profile-stat-following');
+  
+  if (elPlaylists) elPlaylists.textContent = stats.playlists;
+  if (elLiked) elLiked.textContent = stats.liked;
+  if (elFollowers) elFollowers.textContent = stats.followers;
+  if (elFollowing) elFollowing.textContent = stats.following;
+
+  const badgesSection = document.getElementById('profile-badges-section');
+  const badgesGrid = document.getElementById('profile-badges-grid');
+  
+  if (badgesSection && badgesGrid) {
+    const badges = getUserBadges(stats, profile.data);
+    if (badges.length > 0) {
+      badgesGrid.innerHTML = badges.map(b => `
+        <div class="profile-badge">
+          <span class="badge-icon">${b.icon}</span>
+          <div class="badge-info">
+            <span class="badge-name">${b.name}</span>
+            <span class="badge-desc">${b.desc}</span>
+          </div>
+        </div>
+      `).join('');
+      badgesSection.style.display = 'block';
+    } else {
+      badgesGrid.innerHTML = '<p style="color:var(--tm);font-size:13px;padding:12px;">Henüz rozet yok.</p>';
+    }
+  }
+}
+
+// Hook into existing profile load
+const originalLoadProfile = window.loadProfile;
+window.loadProfile = async () => {
+  if (typeof originalLoadProfile === 'function') await originalLoadProfile();
+  if (currentUserId) {
+    await renderProfileEnhancedStats(currentUserId);
+  }
+};
