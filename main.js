@@ -2,9 +2,18 @@ const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
-const { autoUpdater } = require('electron-updater');
 const { execSync } = require('child_process');
 const { initDiscordRPC, updatePresence, clearPresence, destroyRPC } = require('./src/js/discord-rpc');
+const { uploadFileToR2 } = require('./r2-uploader');
+const { downloadToMp3 } = require('./downloader');
+
+// Auto updater - opsiyonel, electron-updater yüklü değilse sessizce atla
+let autoUpdater = null;
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+} catch (e) {
+  console.log('[AutoUpdater] electron-updater paketi bulunamadı, otomatik güncelleme devre dışı.');
+}
 
 function isAppRunningAsAdmin() {
   if (process.platform !== 'win32') return false;
@@ -73,6 +82,23 @@ function createWindow() {
   });
 
   mainWindow.loadFile('src/pages/auth.html');
+
+  // Tarayıcı geri tuşuyla sayfa geçişini engelle ve uygulama içi geri tuşunu tetikle
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    // Mouse geri/ileri tuşları veya Alt+Left/Right ile sayfa geçişini engelle
+    if (input.type === 'keyDown') {
+      const isBack = (input.alt && input.key === 'Left') || input.key === 'BrowserBack';
+      const isForward = (input.alt && input.key === 'Right') || input.key === 'BrowserForward';
+      
+      if (isBack || isForward) {
+        event.preventDefault();
+      }
+
+      if (isBack) {
+        mainWindow.webContents.send('app-go-back');
+      }
+    }
+  });
 
   mainWindow.once('ready-to-show', () => {
     // Wait for the splash screen animation to finish (e.g. 3.5 seconds)
@@ -313,6 +339,47 @@ ipcMain.handle('delete-offline-song', async (event, songId) => {
   }
 });
 
+// ===== R2 Upload & Dialog =====
+ipcMain.handle('upload-to-r2', async (event, filePath, fileName) => {
+  try {
+    const url = await uploadFileToR2(filePath, fileName);
+    return { success: true, url };
+  } catch (error) {
+    console.error('R2 Upload error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('download-convert-upload-r2', async (event, sourceUrl, title, artist) => {
+  try {
+    // 1. Download to MP3
+    const localMp3Path = await downloadToMp3(sourceUrl);
+    
+    // 2. Upload to R2 (under music/ folder)
+    const ext = '.mp3';
+    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const safeArtist = artist.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const r2FileName = `music/${safeArtist}_${safeTitle}${ext}`;
+    
+    const r2Url = await uploadFileToR2(localMp3Path, r2FileName);
+    
+    // 3. Cleanup local file
+    if (fs.existsSync(localMp3Path)) {
+      fs.unlinkSync(localMp3Path);
+    }
+    
+    return { success: true, url: r2Url };
+  } catch (error) {
+    console.error('Download/Convert/Upload error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('show-open-dialog', async (event, options) => {
+  const result = await dialog.showOpenDialog(mainWindow, options);
+  return result;
+});
+
 app.whenReady().then(() => {
   cleanCache();
   createWindow();
@@ -321,30 +388,48 @@ app.whenReady().then(() => {
   initDiscordRPC();
 
   // Otomatik güncellemeleri kontrol et (dev modda sessizce atla)
-  autoUpdater.checkForUpdatesAndNotify().catch(err => {
-    console.log('[AutoUpdater] Güncelleme kontrolü atlandı:', err.message);
-  });
+  if (autoUpdater) {
+    // Dialog gösterme, renderer'a IPC ile bildir
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('update-available', (info) => {
+      console.log('[AutoUpdater] Güncelleme bulundu:', info.version);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-available', { version: info.version });
+      }
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+      console.log(`[AutoUpdater] İndirme: %${Math.round(progress.percent)}`);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-download-progress', {
+          percent: progress.percent,
+          bytesPerSecond: progress.bytesPerSecond,
+          transferred: progress.transferred,
+          total: progress.total
+        });
+      }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('[AutoUpdater] Güncelleme indirildi:', info.version);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-downloaded', { version: info.version });
+      }
+    });
+
+    autoUpdater.checkForUpdatesAndNotify().catch(err => {
+      console.log('[AutoUpdater] Güncelleme kontrolü atlandı:', err.message);
+    });
+  }
 });
 
-// Güncelleme bulunduğunda
-autoUpdater.on('update-available', () => {
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Güncelleme Bulundu',
-    message: 'Yeni bir sürüm mevcut. Arka planda indiriliyor...'
-  });
-});
-
-// Güncelleme indirildiğinde
-autoUpdater.on('update-downloaded', () => {
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Güncelleme Hazır',
-    message: 'Güncelleme başarıyla indirildi. Yeni sürümü kullanmak için uygulama şimdi yeniden başlatılacak.',
-    buttons: ['Yeniden Başlat']
-  }).then(() => {
+// Kullanıcı güncellemeyi yüklemek istediğinde
+ipcMain.on('install-update', () => {
+  if (autoUpdater) {
     setImmediate(() => autoUpdater.quitAndInstall());
-  });
+  }
 });
 app.on('window-all-closed', () => {
   destroyRPC();

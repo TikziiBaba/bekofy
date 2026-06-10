@@ -985,6 +985,23 @@ async function fetchPendingFriendRequests(userId) {
   return { data, error };
 }
 
+async function fetchFollowedArtists(userId) {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('friendships')
+    .select('*, profiles!friendships_friend_id_fkey(id, username, avatar_url, role)')
+    .eq('user_id', userId)
+    .eq('status', 'accepted');
+    
+  if (error || !data) return { data: [], error };
+  
+  const artists = data
+    .map(f => f.profiles)
+    .filter(p => p && p.role === 'artist');
+    
+  return { data: artists, error: null };
+}
+
 async function fetchBlockedUsers(userId) {
   const sb = getSupabase();
   const { data, error } = await sb
@@ -1374,4 +1391,56 @@ function getUserBadges(stats, profile) {
   if (profile?.role === 'artist') badges.push({ icon: '🎤', name: 'Sanatçı', desc: 'Doğrulanmış sanatçı' });
   if (profile?.is_premium) badges.push({ icon: '💎', name: 'Premium', desc: 'Premium üye' });
   return badges;
+}
+
+// ===== Friend Activity (Realtime) =====
+
+async function updateUserActivity(songId, isPlaying) {
+  const sb = getSupabase();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+
+  try {
+    await sb.from('profiles').update({
+      current_song_id: songId,
+      is_playing: isPlaying,
+      last_activity: new Date().toISOString()
+    }).eq('id', user.id);
+  } catch (err) {
+    console.error('Failed to update user activity:', err);
+  }
+}
+
+let _friendActivityChannel = null;
+
+function subscribeToFriendActivity(friendIds, onUpdate) {
+  const sb = getSupabase();
+  
+  if (_friendActivityChannel) {
+    sb.removeChannel(_friendActivityChannel);
+  }
+  
+  if (!friendIds || friendIds.length === 0) return;
+
+  // We construct a filter string to listen only to friends
+  const filterString = `id=in.(${friendIds.join(',')})`;
+
+  _friendActivityChannel = sb.channel('public:profiles_activity')
+    .on('postgres_changes', { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'profiles',
+      filter: filterString
+    }, (payload) => {
+      onUpdate(payload.new);
+    })
+    .subscribe();
+}
+
+function unsubscribeFromFriendActivity() {
+  if (_friendActivityChannel) {
+    const sb = getSupabase();
+    sb.removeChannel(_friendActivityChannel);
+    _friendActivityChannel = null;
+  }
 }

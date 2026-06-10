@@ -122,6 +122,11 @@ class MusicPlayer {
 
       // Jam broadcast
       this.broadcastJamAction('play_song');
+
+      // Friend Activity broadcast
+      if (typeof updateUserActivity === 'function') {
+        updateUserActivity(song.id, true).catch(err => console.warn('Activity update error:', err));
+      }
     } catch (err) {
       console.error('Error playing song:', err);
       showToast('Şarkı oynatılamadı', 'error');
@@ -160,6 +165,14 @@ class MusicPlayer {
 
     // Jam broadcast
     this.broadcastJamAction(this.isPlaying ? 'resume' : 'pause');
+
+    // Friend Activity broadcast
+    if (typeof updateUserActivity === 'function') {
+      const currentSong = this.getCurrentSong();
+      if (currentSong) {
+        updateUserActivity(currentSong.id, this.isPlaying).catch(err => console.warn('Activity update error:', err));
+      }
+    }
   }
 
   next(fromCrossfade = false) {
@@ -299,6 +312,14 @@ class MusicPlayer {
       // Clear Discord RPC when playback ends
       if (window.electronAPI && window.electronAPI.clearDiscordRPC) {
         window.electronAPI.clearDiscordRPC();
+      }
+      
+      // Friend Activity broadcast
+      if (typeof updateUserActivity === 'function') {
+        const currentSong = this.getCurrentSong();
+        if (currentSong) {
+          updateUserActivity(currentSong.id, false).catch(err => console.warn('Activity update error:', err));
+        }
       }
     }
   }
