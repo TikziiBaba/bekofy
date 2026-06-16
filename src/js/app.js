@@ -116,6 +116,10 @@ function navigateTo(page, replaceHistory = false) {
   if (page === 'library') {
     loadLibraryPage();
   }
+  // Load new/explore data when navigating to new
+  if (page === 'new') {
+    if (typeof loadNewContent === 'function') loadNewContent();
+  }
   // Load admin data when navigating to admin
   if (page === 'admin') {
     if (currentUserRole !== 'admin' && currentUserRole !== 'yetkili') {
@@ -383,6 +387,13 @@ async function updateDiscordPopupData() {
   const avatarEl = document.getElementById('discord-popup-avatar');
   avatarEl.innerHTML = document.getElementById('user-avatar').innerHTML;
 
+  if (typeof currentUserAvatarFrame !== 'undefined' && currentUserAvatarFrame !== 'none') {
+    const frameClass = getAvatarFrameClass(currentUserAvatarFrame);
+    avatarEl.className = 'discord-popup-avatar ' + frameClass;
+  } else {
+    avatarEl.className = 'discord-popup-avatar';
+  }
+
   // Banner
   const bannerEl = document.getElementById('discord-popup-banner');
   if (window.currentUserBannerUrl) {
@@ -603,7 +614,7 @@ async function loadUserRole(userId) {
 async function loadUserAvatar(userId, displayName) {
   try {
     const sb = getSupabase();
-    const { data: profile } = await sb.from('profiles').select('avatar_url').eq('id', userId).single();
+    const { data: profile } = await sb.from('profiles').select('avatar_url, avatar_frame').eq('id', userId).single();
     const avatarEl = document.getElementById('user-avatar');
     const topAvatarEl = document.getElementById('top-user-avatar');
 
@@ -751,7 +762,7 @@ async function loadFriendActivity() {
     // Fetch profiles of friends including song info
     const { data: profiles, error: profileErr } = await sb.from('profiles')
       .select(`
-        id, username, avatar_url, is_playing, last_activity,
+        id, username, avatar_url, avatar_frame, is_playing, last_activity,
         songs:current_song_id (id, title, artist, cover_url)
       `)
       .in('id', friendIds);
@@ -791,6 +802,11 @@ function createFriendActivityHTML(profile) {
   const isOnline = profile.is_playing;
   const statusClass = isOnline ? 'online' : '';
 
+  let frameClass = '';
+  if (profile.avatar_frame && profile.avatar_frame !== 'none') {
+    frameClass = ' ' + getAvatarFrameClass(profile.avatar_frame);
+  }
+
   let songInfoHtml = '';
   let artistHtml = '';
   let animHtml = '';
@@ -816,7 +832,7 @@ function createFriendActivityHTML(profile) {
 
   return `
     <div class="friend-activity-item" id="friend-activity-${profile.id}" onclick="window.openFriendProfile('${profile.id}')">
-      <div class="friend-avatar-wrap">
+      <div class="friend-avatar-wrap${frameClass}">
         ${avatar}
         <div class="friend-status-indicator ${statusClass}"></div>
       </div>
@@ -849,7 +865,7 @@ function updateFriendActivityUI(newProfile) {
   if (!_currentFriends.includes(newProfile.id)) return;
 
   const sb = getSupabase();
-  sb.from('profiles').select('id, username, avatar_url, is_playing, last_activity, songs:current_song_id(id, title, artist, cover_url)')
+  sb.from('profiles').select('id, username, avatar_url, avatar_frame, is_playing, last_activity, songs:current_song_id(id, title, artist, cover_url)')
     .eq('id', newProfile.id)
     .single()
     .then(({ data, error }) => {
@@ -908,6 +924,46 @@ async function loadSongs() {
     console.error('Songs load error:', err);
     showEmptyState('recent-songs', 'Şarkılar yüklenemedi');
     showEmptyState('all-songs', 'Şarkılar yüklenemedi');
+  }
+}
+
+// ===== Load New (Keşfet) Content =====
+async function loadNewContent() {
+  if (!currentUserId) return;
+  
+  try {
+    // 1. Fetch newest releases
+    const newReleasesRes = await fetchNewReleases();
+    const newReleasesContainer = document.getElementById('new-latest-releases');
+    if (newReleasesRes.data && newReleasesRes.data.length > 0) {
+      newReleasesContainer.innerHTML = newReleasesRes.data.map(song => createSongCard(song)).join('');
+    } else {
+      newReleasesContainer.innerHTML = '<p style="color:var(--tm);padding:12px;">Yeni çıkan şarkı bulunamadı.</p>';
+    }
+
+    // 2. Fetch liked songs to generate recommendations
+    const likedRes = await fetchLikedSongs(currentUserId);
+    const likedSongIds = new Set((likedRes.data || []).map(l => l.song_id));
+
+    // 3. Recommended Songs
+    const recommendedSongs = await getRecommendedSongs(currentUserId, allSongs, likedSongIds);
+    const recommendedContainer = document.getElementById('new-recommended-songs');
+    if (recommendedSongs && recommendedSongs.length > 0) {
+      recommendedContainer.innerHTML = recommendedSongs.map(song => createSongCard(song)).join('');
+    } else {
+      recommendedContainer.innerHTML = '<p style="color:var(--tm);padding:12px;">Henüz yeterli dinleme geçmişin yok.</p>';
+    }
+
+    // 4. Personalized Mix
+    const mixSongs = await getPersonalizedMix(currentUserId, allSongs, likedSongIds);
+    const mixContainer = document.getElementById('new-personal-mix');
+    const mixSection = document.getElementById('section-personal-mix');
+    if (mixSongs && mixSongs.length > 0) {
+      mixContainer.innerHTML = mixSongs.map(song => createSongCard(song)).join('');
+      mixSection.style.display = 'block';
+    }
+  } catch (err) {
+    console.error('Error loading new content:', err);
   }
 }
 
@@ -1422,7 +1478,7 @@ async function showSearchDiscovery() {
     const sb = getSupabase();
     const [artistsRes, profilesRes] = await Promise.all([
       sb.from('artists').select('id, name, avatar_url').order('name').limit(20),
-      sb.from('profiles').select('id, username, avatar_url, role').eq('role', 'artist').order('username').limit(10)
+      sb.from('profiles').select('id, username, avatar_url, avatar_frame, role').eq('role', 'artist').order('username').limit(10)
     ]);
 
     const seen = new Set();
@@ -1751,9 +1807,13 @@ function renderSearchResults(songs, query, playlists = [], users = []) {
       <h2 class="section-title">👤 Kullanıcılar</h2>
       <div class="users-grid" style="display:flex;gap:12px;margin-bottom:24px;overflow-x:auto;padding-bottom:8px">
         ${users.map(u => {
+      let frameClass = '';
+      if (u.avatar_frame && u.avatar_frame !== 'none') {
+        frameClass = ' ' + getAvatarFrameClass(u.avatar_frame);
+      }
       const avatarHtml = u.avatar_url
-        ? `<img src="${u.avatar_url}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;">`
-        : `<span style="width:50px;height:50px;border-radius:50%;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-weight:bold;color:var(--ts)">${getInitials(u.username)}</span>`;
+        ? `<div class="search-avatar-wrapper${frameClass}" style="width:50px;height:50px;position:relative"><img src="${u.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;position:relative;z-index:2"></div>`
+        : `<div class="search-avatar-wrapper${frameClass}" style="width:50px;height:50px;position:relative"><span style="width:100%;height:100%;border-radius:50%;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-weight:bold;color:var(--ts);position:relative;z-index:2">${getInitials(u.username)}</span></div>`;
       return `
           <div class="user-search-card" data-user-id="${u.id}" data-user-role="${u.role}" data-user-name="${escapeHtml(u.username)}" style="background:var(--bg-card);padding:12px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:140px;border:1px solid var(--border)">
             ${avatarHtml}
@@ -2492,44 +2552,161 @@ function initEditPlaylistModal() {
 }
 
 // ===== Collaborative Playlists Modal =====
+let collabSearchTimer = null;
+
 function initCollabModal() {
   const overlay = document.getElementById('overlay-collab');
   const closeBtn = document.getElementById('btn-close-collab');
-  const addBtn = document.getElementById('btn-add-collab');
+  const usernameInput = document.getElementById('collab-username');
+  const searchResults = document.getElementById('collab-search-results');
 
   if (!overlay) return;
 
+  // Close modal
   closeBtn.addEventListener('click', () => {
     overlay.style.display = 'none';
+    searchResults.style.display = 'none';
+    usernameInput.value = '';
   });
 
-  addBtn.addEventListener('click', async () => {
-    const usernameInput = document.getElementById('collab-username');
-    const username = usernameInput.value.trim();
-    if (!username) {
-      showToast('Lütfen bir kullanıcı adı girin', 'error');
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.style.display = 'none';
+      searchResults.style.display = 'none';
+      usernameInput.value = '';
+    }
+  });
+
+  // Focus style for input
+  usernameInput.addEventListener('focus', () => {
+    usernameInput.style.borderColor = '#1DB954';
+    usernameInput.style.boxShadow = '0 0 0 3px rgba(29, 185, 84, 0.15)';
+  });
+  usernameInput.addEventListener('blur', () => {
+    // Delay to allow click on dropdown
+    setTimeout(() => {
+      usernameInput.style.borderColor = 'var(--border)';
+      usernameInput.style.boxShadow = 'none';
+      // Only hide if nothing selected
+      if (!usernameInput.value.trim()) {
+        searchResults.style.display = 'none';
+      }
+    }, 200);
+  });
+
+  // Autocomplete search with debounce
+  usernameInput.addEventListener('input', () => {
+    const query = usernameInput.value.trim();
+    
+    clearTimeout(collabSearchTimer);
+    
+    if (query.length < 1) {
+      searchResults.style.display = 'none';
       return;
     }
 
-    addBtn.textContent = 'Ekleniyor...';
-    addBtn.disabled = true;
+    collabSearchTimer = setTimeout(async () => {
+      try {
+        const { data: profiles, error } = await sb
+          .from('profiles')
+          .select('id, username, avatar_url, avatar_frame, role')
+          .ilike('username', `%${query}%`)
+          .neq('id', currentUserId)
+          .limit(8);
 
-    try {
-      const result = await addPlaylistCollaborator(currentPlaylistId, username);
-      if (result.error) {
-        showToast(result.error, 'error');
-      } else {
-        showToast('Ortak başarıyla eklendi!', 'success');
-        usernameInput.value = '';
-        renderCollabList(currentPlaylistId);
+        if (error || !profiles || profiles.length === 0) {
+          searchResults.innerHTML = `
+            <div style="padding:16px 20px; color:var(--tm); font-size:13px; text-align:center;">
+              Sonuç bulunamadı
+            </div>`;
+          searchResults.style.display = 'block';
+          return;
+        }
+
+        searchResults.innerHTML = profiles.map(profile => {
+          let frameClass = '';
+          if (profile.avatar_frame && profile.avatar_frame !== 'none') {
+            frameClass = ' ' + getAvatarFrameClass(profile.avatar_frame);
+          }
+          
+          const roleBadge = profile.role === 'premium' ? '<span style="font-size:10px; margin-left:4px;">✨</span>' 
+            : profile.role === 'artist' ? '<span style="font-size:10px; margin-left:4px;">🎤</span>'
+            : '';
+          
+          const avatarHtml = profile.avatar_url
+            ? `<div class="collab-avatar-wrap${frameClass}" style="width:36px; height:36px; flex-shrink:0; position:relative;">
+                <img src="${profile.avatar_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; position:relative; z-index:2;" alt="">
+               </div>`
+            : `<div class="collab-avatar-wrap${frameClass}" style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, rgba(29,185,84,0.2), rgba(29,185,84,0.05)); display:flex; align-items:center; justify-content:center; color:var(--green, #1DB954); font-size:15px; font-weight:700; flex-shrink:0; position:relative;">
+                <span style="position:relative; z-index:2;">${(profile.username || '?')[0].toUpperCase()}</span>
+               </div>`;
+
+          return `
+            <div class="collab-search-item" data-user-name="${escapeHtml(profile.username)}" 
+              style="display:flex; align-items:center; gap:12px; padding:10px 16px; cursor:pointer; transition:background 0.15s;">
+              ${avatarHtml}
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:14px; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  ${escapeHtml(profile.username || 'Bilinmeyen')}${roleBadge}
+                </div>
+              </div>
+              <div style="flex-shrink:0;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#1DB954" stroke-width="2" width="18" height="18">
+                  <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                  <circle cx="8.5" cy="7" r="4"/>
+                  <line x1="20" y1="8" x2="20" y2="14"/>
+                  <line x1="23" y1="11" x2="17" y2="11"/>
+                </svg>
+              </div>
+            </div>`;
+        }).join('');
+
+        searchResults.style.display = 'block';
+
+        // Add hover + click events
+        searchResults.querySelectorAll('.collab-search-item').forEach(item => {
+          item.addEventListener('mouseenter', () => {
+            item.style.background = 'rgba(255,255,255,0.06)';
+          });
+          item.addEventListener('mouseleave', () => {
+            item.style.background = 'transparent';
+          });
+          item.addEventListener('click', async () => {
+            const username = item.dataset.userName;
+            if (!username) return;
+
+            item.style.opacity = '0.5';
+            item.style.pointerEvents = 'none';
+
+            try {
+              const result = await addPlaylistCollaborator(currentPlaylistId, username);
+              if (result.error) {
+                showToast(result.error, 'error');
+                item.style.opacity = '1';
+                item.style.pointerEvents = 'auto';
+              } else {
+                showToast(`${username} ortak olarak eklendi! 🎉`, 'success');
+                usernameInput.value = '';
+                searchResults.style.display = 'none';
+                renderCollabList(currentPlaylistId);
+              }
+            } catch (e) {
+              console.error(e);
+              showToast('Bir hata oluştu.', 'error');
+              item.style.opacity = '1';
+              item.style.pointerEvents = 'auto';
+            }
+          });
+        });
+      } catch (err) {
+        console.error('Collab search error:', err);
+        searchResults.innerHTML = `
+          <div style="padding:16px 20px; color:var(--error, #f44); font-size:13px; text-align:center;">
+            Arama hatası
+          </div>`;
+        searchResults.style.display = 'block';
       }
-    } catch (e) {
-      console.error(e);
-      showToast('Bir hata oluştu.', 'error');
-    } finally {
-      addBtn.textContent = 'Ekle';
-      addBtn.disabled = false;
-    }
+    }, 300); // 300ms debounce
   });
 }
 
@@ -2538,6 +2715,9 @@ async function openCollabModal(playlistId) {
   if (!overlay) return;
   overlay.style.display = 'flex';
   document.getElementById('collab-username').value = '';
+  
+  const searchResults = document.getElementById('collab-search-results');
+  if (searchResults) searchResults.style.display = 'none';
 
   await renderCollabList(playlistId);
 }
@@ -2554,9 +2734,13 @@ async function renderCollabList(playlistId) {
   }
 
   listEl.innerHTML = collabs.map(collab => {
+    let frameClass = '';
+    if (collab.profiles?.avatar_frame && collab.profiles.avatar_frame !== 'none') {
+      frameClass = ' ' + getAvatarFrameClass(collab.profiles.avatar_frame);
+    }
     const avatar = collab.profiles?.avatar_url
-      ? `<img src="${collab.profiles.avatar_url}" style="width:32px; height:32px; border-radius:50%; object-fit:cover">`
-      : `<div style="width:32px; height:32px; border-radius:50%; background:var(--bg-highlight); display:flex; align-items:center; justify-content:center; color:var(--ts); font-size:14px; font-weight:bold">${collab.profiles?.username?.[0]?.toUpperCase() || '?'}</div>`;
+      ? `<div class="collab-avatar-wrap${frameClass}" style="width:32px; height:32px; position:relative"><img src="${collab.profiles.avatar_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; position:relative; z-index:2"></div>`
+      : `<div class="collab-avatar-wrap${frameClass}" style="width:32px; height:32px; border-radius:50%; background:var(--bg-highlight); display:flex; align-items:center; justify-content:center; color:var(--ts); font-size:14px; font-weight:bold; position:relative"><span style="position:relative; z-index:2">${collab.profiles?.username?.[0]?.toUpperCase() || '?'}</span></div>`;
 
     return `
       <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); padding:10px 14px; border-radius:8px">
@@ -3200,9 +3384,13 @@ function renderAdminUsers(profiles) {
       </thead>
       <tbody>
         ${profiles.map(p => {
+    let frameClass = '';
+    if (p.avatar_frame && p.avatar_frame !== 'none') {
+      frameClass = ' ' + getAvatarFrameClass(p.avatar_frame);
+    }
     const avatar = p.avatar_url
-      ? `<span class="user-row-avatar"><img src="${p.avatar_url}" alt=""></span>`
-      : `<span class="user-row-avatar">${getInitials(p.username || '?')}</span>`;
+      ? `<span class="user-row-avatar${frameClass}" style="position:relative"><img src="${p.avatar_url}" alt="" style="position:relative; z-index:2"></span>`
+      : `<span class="user-row-avatar${frameClass}" style="position:relative"><span style="position:relative; z-index:2">${getInitials(p.username || '?')}</span></span>`;
     const date = p.created_at ? new Date(p.created_at).toLocaleDateString('tr-TR') : '-';
     const isCurrentUser = p.id === currentUserId;
     return `
@@ -3472,11 +3660,17 @@ async function loadProfilePage() {
       const avatarEl = document.getElementById('profile-avatar-large');
       const removeBtn = document.getElementById('btn-remove-avatar');
       if (profile.avatar_url) {
-        avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar">`;
+        avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;position:relative;z-index:2">`;
         if (removeBtn) removeBtn.style.display = 'block';
       } else {
-        avatarEl.innerHTML = `<span style="font-size:40px;font-weight:700;color:var(--ts)">${getInitials(profile.username)}</span>`;
+        avatarEl.innerHTML = `<span class="avatar-initials" style="font-size:40px;font-weight:700;color:var(--ts);display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:var(--bg-elevated);position:relative;z-index:2">${getInitials(profile.username)}</span>`;
         if (removeBtn) removeBtn.style.display = 'none';
+      }
+      // Apply avatar frame
+      if (currentUserAvatarFrame && currentUserAvatarFrame !== 'none') {
+        avatarEl.className = 'premium-avatar ' + getAvatarFrameClass(currentUserAvatarFrame);
+      } else {
+        avatarEl.className = 'premium-avatar';
       }
 
       // Show banner if loaded
@@ -3566,9 +3760,16 @@ async function loadPublicUserProfile(userId) {
 
     const avatarEl = document.getElementById('public-profile-avatar');
     if (profile.avatar_url) {
-      avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar">`;
+      avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;position:relative;z-index:2">`;
     } else {
-      avatarEl.innerHTML = `<span style="font-size:60px;font-weight:700;color:var(--ts)">${getInitials(profile.username)}</span>`;
+      avatarEl.innerHTML = `<span class="avatar-initials" style="font-size:60px;font-weight:700;color:var(--ts);display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:var(--bg-elevated);position:relative;z-index:2">${getInitials(profile.username)}</span>`;
+    }
+    // Apply avatar frame
+    if (profile.avatar_frame && profile.avatar_frame !== 'none') {
+      const frameClass = getAvatarFrameClass(profile.avatar_frame);
+      avatarEl.className = 'premium-avatar ' + frameClass;
+    } else {
+      avatarEl.className = 'premium-avatar';
     }
 
     // Show banner if exists
@@ -4069,6 +4270,39 @@ function initNowPlayingOverlay() {
   const closeBtn = document.getElementById('np-close-btn');
   const npCover = document.getElementById('now-playing-cover');
   const npInfo = document.querySelector('.now-playing-info');
+
+  // Fullscreen button
+  const fsBtn = document.getElementById('np-fullscreen-btn');
+  if (fsBtn) {
+    fsBtn.addEventListener('click', () => {
+      overlay.classList.toggle('np-fullscreen');
+    });
+  }
+
+  // Resize handle
+  const resizeHandle = document.getElementById('np-resize-handle');
+  if (resizeHandle) {
+    let isResizing = false;
+    resizeHandle.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.body.style.cursor = 'ew-resize';
+      resizeHandle.classList.add('active');
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth >= 250 && newWidth <= 800) {
+        overlay.style.width = newWidth + 'px';
+      }
+    });
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        document.body.style.cursor = '';
+        resizeHandle.classList.remove('active');
+      }
+    });
+  }
 
   // Open overlay when clicking cover or song info in player bar
   if (npCover) {
@@ -5166,96 +5400,6 @@ function cancelSleepTimer() {
   if (btn) btn.classList.remove('active');
 }
 
-// ===== CROSSFADE UI =====
-function initCrossfade() {
-  const btn = document.getElementById('btn-crossfade');
-  const popup = document.getElementById('crossfade-popup');
-  const toggle = document.getElementById('crossfade-toggle');
-  const durationSection = document.getElementById('crossfade-duration-section');
-  const durationValue = document.getElementById('crossfade-duration-value');
-  const sliderTrack = document.getElementById('crossfade-slider-track');
-  const sliderFill = document.getElementById('crossfade-slider-fill');
-  const sliderKnob = document.getElementById('crossfade-slider-knob');
-  if (!btn || !popup) return;
-
-  // Load saved state
-  toggle.checked = player.crossfadeEnabled;
-  btn.classList.toggle('active', player.crossfadeEnabled);
-  durationSection.style.opacity = player.crossfadeEnabled ? '1' : '0.4';
-  durationSection.style.pointerEvents = player.crossfadeEnabled ? 'auto' : 'none';
-  updateCrossfadeSlider(player.crossfadeDuration);
-
-  // Toggle popup
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const sleepPopup = document.getElementById('sleep-timer-popup');
-    if (sleepPopup) sleepPopup.style.display = 'none';
-    popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
-  });
-
-  // Close popup on outside click
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.crossfade-wrapper')) {
-      popup.style.display = 'none';
-    }
-  });
-
-  // Toggle enable/disable
-  toggle.addEventListener('change', () => {
-    player.setCrossfade(toggle.checked, player.crossfadeDuration);
-    durationSection.style.opacity = toggle.checked ? '1' : '0.4';
-    durationSection.style.pointerEvents = toggle.checked ? 'auto' : 'none';
-    if (toggle.checked) {
-      showToast('Crossfade aktif 🎶', 'success');
-    } else {
-      showToast('Crossfade kapatıldı', 'info');
-    }
-  });
-
-  // Slider drag for duration
-  let isDragging = false;
-  const MIN_DURATION = 2;
-  const MAX_DURATION = 12;
-
-  function updateCrossfadeSlider(duration) {
-    const pct = ((duration - MIN_DURATION) / (MAX_DURATION - MIN_DURATION)) * 100;
-    sliderFill.style.width = pct + '%';
-    sliderKnob.style.left = pct + '%';
-    durationValue.textContent = duration + 's';
-  }
-
-  function handleSliderMove(clientX) {
-    const rect = sliderTrack.getBoundingClientRect();
-    let pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const duration = Math.round(MIN_DURATION + pct * (MAX_DURATION - MIN_DURATION));
-    updateCrossfadeSlider(duration);
-    player.setCrossfade(player.crossfadeEnabled, duration);
-  }
-
-  sliderTrack.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    handleSliderMove(e.clientX);
-    e.preventDefault();
-  });
-
-  sliderKnob.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    e.preventDefault();
-    e.stopPropagation();
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (isDragging) handleSliderMove(e.clientX);
-  });
-
-  document.addEventListener('mouseup', () => {
-    isDragging = false;
-  });
-
-  sliderTrack.addEventListener('click', (e) => {
-    handleSliderMove(e.clientX);
-  });
-}
 
 // ===== QUEUE PANEL =====
 let queuePanelOpen = false;
@@ -5357,7 +5501,6 @@ player.onTimeUpdate = function () {
 // ===== PREMIUM BADGE =====
 let currentUserIsPremium = false;
 let currentUserAvatarFrame = 'none';
-let currentUserTheme = 'default';
 let currentUserBannerUrl = null;
 
 function hasPremiumAccess() {
@@ -5374,62 +5517,8 @@ function getAvatarFrameClass(frame) {
   return `avatar-frame avatar-frame-${frame}`;
 }
 
-// ===== THEME SYSTEM =====
-function initThemeSelector() {
-  const selector = document.getElementById('theme-selector');
-  if (!selector) return;
 
-  selector.querySelectorAll('.theme-option').forEach(opt => {
-    opt.addEventListener('click', () => {
-      const theme = opt.dataset.theme;
-      if (theme !== 'default' && !hasPremiumAccess()) {
-        showToast('Özel temalar Premium üyelere özel 💎', 'error');
-        return;
-      }
-      applyTheme(theme);
-      selector.querySelectorAll('.theme-option').forEach(o => o.classList.remove('active'));
-      opt.classList.add('active');
-      currentUserTheme = theme;
-      localStorage.setItem('bekofy_theme', theme);
-    });
-  });
 
-  // Mark non-default themes as locked for non-premium
-  updateThemeLocks();
-}
-
-function updateThemeLocks() {
-  const selector = document.getElementById('theme-selector');
-  if (!selector) return;
-  selector.querySelectorAll('.theme-option').forEach(opt => {
-    if (opt.dataset.theme !== 'default') {
-      opt.classList.toggle('locked', !hasPremiumAccess());
-    }
-  });
-  const note = document.getElementById('theme-premium-note');
-  if (note) note.textContent = hasPremiumAccess() ? '' : 'Özel temalar Premium üyelere özel';
-}
-
-function applyTheme(theme) {
-  if (theme === 'default') {
-    document.documentElement.removeAttribute('data-theme');
-  } else {
-    document.documentElement.setAttribute('data-theme', theme);
-  }
-}
-
-function loadSavedTheme() {
-  const saved = localStorage.getItem('bekofy_theme') || 'default';
-  if (saved !== 'default' && hasPremiumAccess()) {
-    applyTheme(saved);
-    currentUserTheme = saved;
-    const opt = document.querySelector(`.theme-option[data-theme="${saved}"]`);
-    if (opt) {
-      document.querySelectorAll('.theme-option').forEach(o => o.classList.remove('active'));
-      opt.classList.add('active');
-    }
-  }
-}
 
 // ===== AVATAR FRAME SELECTOR =====
 function initFrameSelector() {
@@ -5680,16 +5769,22 @@ loadUserInfo = async function () {
         nameEl.appendChild(badge);
       }
 
-      // Apply avatar frame in sidebar
+      // Apply avatar frame in sidebar and other places
       const avatarEl = document.getElementById('user-avatar');
-      if (avatarEl && currentUserAvatarFrame !== 'none') {
-        const frameClass = getAvatarFrameClass(currentUserAvatarFrame);
-        if (frameClass) avatarEl.className = 'user-avatar ' + frameClass;
+      const topAvatarEl = document.getElementById('top-user-avatar');
+      const profileAvatarLargeEl = document.getElementById('profile-avatar-large');
+      
+      const frameClass = currentUserAvatarFrame !== 'none' ? getAvatarFrameClass(currentUserAvatarFrame) : '';
+      
+      if (avatarEl) {
+        avatarEl.className = 'user-avatar ' + frameClass;
       }
-
-      // Apply saved theme
-      loadSavedTheme();
-      updateThemeLocks();
+      if (topAvatarEl) {
+        topAvatarEl.className = 'top-user-avatar ' + frameClass;
+      }
+      if (profileAvatarLargeEl) {
+        profileAvatarLargeEl.className = 'premium-avatar ' + frameClass;
+      }
 
       // Show banner preview if exists
       if (currentUserBannerUrl) showBannerPreview(currentUserBannerUrl);
@@ -5747,7 +5842,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     initSleepTimer();
     initQueuePanel();
-    initThemeSelector();
+
     initFrameSelector();
     initBannerUpload();
     initOfflineDownload();
@@ -6180,13 +6275,20 @@ async function refreshJamParticipants(sessionId) {
     countEl.textContent = participants.length;
     bannerCount.textContent = participants.length + ' kişi';
 
-    list.innerHTML = participants.map(p => `
+    list.innerHTML = participants.map(p => {
+      let frameClass = '';
+      if (p.profiles?.avatar_frame && p.profiles.avatar_frame !== 'none') {
+        frameClass = ' ' + getAvatarFrameClass(p.profiles.avatar_frame);
+      }
+      return `
       <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px;">
-        <img src="${p.profiles?.avatar_url || '../assets/default_avatar.png'}" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;">
+        <div class="jam-avatar-wrap${frameClass}" style="position:relative; width:30px; height:30px; border-radius:50%">
+          <img src="${p.profiles?.avatar_url || '../assets/default_avatar.png'}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position:relative; z-index:2">
+        </div>
         <span style="flex: 1; font-size: 14px;">${p.profiles?.username || 'Kullanıcı'}</span>
         ${p.user_id === player.jamSessionId ? '<span style="font-size: 10px; background: var(--primary-color); color: black; padding: 2px 6px; border-radius: 10px;">Kurucu</span>' : ''}
       </div>
-    `).join('');
+    `}).join('');
   } catch (err) {
     console.error('Participant refresh err:', err);
   }
@@ -6264,3 +6366,10 @@ window.loadProfile = async () => {
     await renderProfileEnhancedStats(currentUserId);
   }
 };
+
+// Save current playback time when the app/window closes
+window.addEventListener('beforeunload', () => {
+  if (typeof player !== 'undefined' && player.saveCurrentTime) {
+    player.saveCurrentTime();
+  }
+});

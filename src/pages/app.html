@@ -40,11 +40,16 @@
   <!-- Top Navigation Bar -->
   <div class="top-bar" id="top-bar">
     <!-- Left: Home -->
-    <div class="top-bar-left">
+    <div class="top-bar-left" style="display:flex;gap:8px;">
       <button class="top-nav-btn top-nav-home" id="btn-nav-home" title="Ana Sayfa" data-page="home">
         <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
           <path
             d="M12.5 3.247a1 1 0 00-1 0L4 7.577V20h4.5v-6a1 1 0 011-1h5a1 1 0 011 1v6H20V7.577l-7.5-4.33zm-2-1.732a3 3 0 013 0l7.5 4.33a2 2 0 011 1.732V21a1 1 0 01-1 1h-6.5a1 1 0 01-1-1v-6h-3v6a1 1 0 01-1 1H3a1 1 0 01-1-1V7.577a2 2 0 011-1.732l7.5-4.33z" />
+        </svg>
+      </button>
+      <button class="top-nav-btn top-nav-new" id="btn-nav-new" title="Keşfet" data-page="new">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </div>
@@ -135,6 +140,7 @@
       <!-- Hidden nav items (for JS compatibility, not visible) -->
       <div style="display:none">
         <a href="#" class="nav-item active" data-page="home" id="nav-home"></a>
+        <a href="#" class="nav-item" data-page="new" id="nav-new"></a>
         <a href="#" class="nav-item" data-page="search" id="nav-search"></a>
         <a href="#" class="nav-item" data-page="library" id="nav-library"></a>
         <a href="#" class="nav-item nav-wrapped" data-page="wrapped" id="nav-wrapped"></a>
@@ -402,6 +408,47 @@
         </section>
       </div>
 
+      <!-- New / Keşfet Page -->
+      <div class="page" id="page-new">
+        <div class="page-header">
+          <h1>Keşfet</h1>
+          <p class="greeting-subtitle">Sana özel öneriler ve en yeni şarkılar</p>
+        </div>
+
+        <!-- Sana Özel Playlist -->
+        <section class="section" id="section-personal-mix" style="display:none">
+          <h2 class="section-title">✨ Sana Özel Seçimler</h2>
+          <div class="songs-grid" id="new-personal-mix">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Özel listen hazırlanıyor...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Önerilen Şarkılar -->
+        <section class="section" id="section-recommended">
+          <h2 class="section-title">🎯 Sevebileceğin Şarkılar</h2>
+          <div class="songs-grid" id="new-recommended-songs">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Öneriler yükleniyor...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Bu Haftanın Listesi / Yeni Eklenenler -->
+        <section class="section">
+          <h2 class="section-title">🔥 En Yeni Çıkışlar</h2>
+          <div class="songs-grid" id="new-latest-releases">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Şarkılar yükleniyor...</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
       <!-- Search Page -->
       <div class="page" id="page-search">
         <div class="page-header">
@@ -539,7 +586,7 @@
       <!-- Public User Profile Page -->
       <div class="page premium-profile" id="page-user-profile">
         <div class="premium-banner-wrapper" id="public-profile-banner-wrapper">
-          <img id="public-profile-banner-img" src="" alt=""
+          <img id="public-profile-banner-img" alt=""
             style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:0;">
           <div class="premium-banner-overlay"></div>
 
@@ -698,6 +745,7 @@
       <!-- Profile Page -->
       <div class="page premium-profile" id="page-profile">
         <div class="premium-banner-wrapper" id="own-profile-banner-wrapper">
+          <img id="own-profile-banner-img" style="display:none;">
           <div class="premium-banner-overlay"></div>
 
           <div class="premium-profile-header">
@@ -781,22 +829,7 @@
 
           <h2 class="premium-section-title">Kişiselleştirme</h2>
           <div class="premium-form-grid">
-            <div class="premium-form-group full-width" id="profile-theme-field">
-              <label>Tema Seçimi</label>
-              <div class="theme-selector" id="theme-selector">
-                <div class="theme-option active" data-theme="default" title="Yeşil (Varsayılan)"><span
-                    style="background:#1DB954"></span></div>
-                <div class="theme-option" data-theme="ocean" title="Okyanus"><span style="background:#0ea5e9"></span>
-                </div>
-                <div class="theme-option" data-theme="sunset" title="Gün Batımı"><span
-                    style="background:#f97316"></span></div>
-                <div class="theme-option" data-theme="purple" title="Mor"><span style="background:#a855f7"></span></div>
-                <div class="theme-option" data-theme="rose" title="Gül"><span style="background:#f43f5e"></span></div>
-                <div class="theme-option" data-theme="midnight" title="Gece"><span style="background:#6366f1"></span>
-                </div>
-              </div>
-              <p style="font-size:12px;color:var(--tm);margin-top:6px" id="theme-premium-note"></p>
-            </div>
+
             <div class="premium-form-group full-width" id="profile-frame-field">
               <label>Avatar Çerçevesi</label>
               <div class="frame-selector" id="frame-selector">
@@ -1237,9 +1270,14 @@
           </svg>
         </button>
         <button class="btn-ctrl-sm" id="btn-repeat" title="Tekrarla">
-          <svg viewBox="0 0 16 16" fill="currentColor">
+          <svg viewBox="0 0 16 16" fill="currentColor" class="icon-repeat-all">
             <path
               d="M0 4.75A3.75 3.75 0 013.75 1h8.5A3.75 3.75 0 0116 4.75v5a.75.75 0 01-1.5 0v-5A2.25 2.25 0 0012.25 2.5h-8.5A2.25 2.25 0 001.5 4.75v5A2.25 2.25 0 003.75 12H5v1.5H3.75A3.75 3.75 0 010 9.75v-5zm12.25 8.25H11V11.5h1.25a2.25 2.25 0 002.25-2.25.75.75 0 011.5 0A3.75 3.75 0 0112.25 13zM8 15l3-3H5l3 3z" />
+          </svg>
+          <svg viewBox="0 0 16 16" fill="currentColor" class="icon-repeat-one" style="display:none">
+            <path
+              d="M0 4.75A3.75 3.75 0 013.75 1h8.5A3.75 3.75 0 0116 4.75v5a.75.75 0 01-1.5 0v-5A2.25 2.25 0 0012.25 2.5h-8.5A2.25 2.25 0 001.5 4.75v5A2.25 2.25 0 003.75 12H5v1.5H3.75A3.75 3.75 0 010 9.75v-5zm12.25 8.25H11V11.5h1.25a2.25 2.25 0 002.25-2.25.75.75 0 011.5 0A3.75 3.75 0 0112.25 13zM8 15l3-3H5l3 3z" />
+            <path d="M7 6v5h1.5V6H7z" />
           </svg>
         </button>
       </div>
@@ -1289,52 +1327,6 @@
           <div class="sleep-option" data-minutes="60">1 saat</div>
           <div class="sleep-option" data-minutes="90">1.5 saat</div>
           <div class="sleep-option sleep-cancel" id="sleep-cancel" style="display:none">İptal Et</div>
-        </div>
-      </div>
-      <div class="crossfade-wrapper">
-        <button class="btn-ctrl-sm" id="btn-crossfade" title="Crossfade - Şarkı Geçişi">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-            <path
-              d="M16 9V7H8v2h8zm-2 4V11H10v2h4zM6 19V5h12v14H6zm-2 2h16c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2z"
-              opacity="0" />
-            <path
-              d="M2 17.5c0 .28.22.5.5.5h3.17l-2.83 2.83.71.71L6.38 18H9.5c.28 0 .5-.22.5-.5s-.22-.5-.5-.5H6.38l3.79-3.79-.71-.71-3.79 3.79V14a.5.5 0 00-1 0v3.5zM14.5 6c-.28 0-.5.22-.5.5v3.21l-3.79-3.79-.71.71L13.29 10.5H10a.5.5 0 000 1h3.5c.28 0 .5-.22.5-.5V7.29l3.79 3.79.71-.71L14.71 6.5H18a.5.5 0 000-1h-3.5z" />
-          </svg>
-        </button>
-        <div class="crossfade-active-indicator" id="crossfade-active-indicator"></div>
-        <div class="crossfade-popup" id="crossfade-popup" style="display:none">
-          <div class="crossfade-popup-title">Crossfade</div>
-          <div class="crossfade-toggle-row">
-            <span>Şarkı geçişi</span>
-            <label class="toggle-switch">
-              <input type="checkbox" id="crossfade-toggle">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="crossfade-duration-section" id="crossfade-duration-section">
-            <div class="crossfade-duration-label">
-              <span>Geçiş süresi</span>
-              <span class="crossfade-duration-value" id="crossfade-duration-value">6s</span>
-            </div>
-            <div class="crossfade-slider-track" id="crossfade-slider-track">
-              <div class="crossfade-slider-fill" id="crossfade-slider-fill"></div>
-              <div class="crossfade-slider-knob" id="crossfade-slider-knob"></div>
-            </div>
-            <div class="crossfade-slider-labels">
-              <span>2s</span>
-              <span>12s</span>
-            </div>
-          </div>
-          <div class="crossfade-mode-section" id="crossfade-mode-section">
-            <div class="crossfade-duration-label" style="margin-bottom:8px;">
-              <span>Geçiş Stili</span>
-            </div>
-            <div class="crossfade-modes">
-              <div class="crossfade-mode-btn active" data-mode="eq" title="DJ tarzı EQ filtre geçişi">DJ EQ</div>
-              <div class="crossfade-mode-btn" data-mode="classic" title="Klasik eşit güç geçişi">Klasik</div>
-              <div class="crossfade-mode-btn" data-mode="power-cut" title="Hızlı kesme ve geçiş">Power Cut</div>
-            </div>
-          </div>
         </div>
       </div>
       <button class="btn-ctrl-sm" id="btn-volume-icon" title="Ses">
@@ -1497,6 +1489,7 @@
 
   <!-- Now Playing Detail Overlay -->
   <div class="now-playing-overlay" id="now-playing-overlay">
+    <div class="np-resize-handle" id="np-resize-handle"></div>
     <!-- Spotify Canvas Background -->
     <div class="np-canvas-bg" id="np-canvas-bg">
       <div class="np-canvas-blob np-canvas-blob-1"></div>
@@ -1512,12 +1505,19 @@
         </svg>
       </button>
       <span class="np-header-title" id="np-header-title">Şimdi Çalıyor</span>
-      <button class="np-more-btn" id="np-more-btn" title="Daha Fazla">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-          <path
-            d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-        </svg>
-      </button>
+      <div style="display:flex; gap:8px;">
+        <button class="np-more-btn" id="np-fullscreen-btn" title="Tam Ekran" style="background:none;border:none;color:var(--ts);cursor:pointer;padding:4px;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+          </svg>
+        </button>
+        <button class="np-more-btn" id="np-more-btn" title="Daha Fazla">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+            <path
+              d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div class="now-playing-overlay-scroll" id="np-scroll">
@@ -1634,15 +1634,7 @@
           <div class="np-lyrics-content" id="np-lyrics-content" style="display:none"></div>
 
 
-          <div class="lyrics-share-action-bar" id="lyrics-share-action-bar"
-            style="display:none; position:absolute; bottom:0; left:0; right:0; background:var(--bg-elevated); padding:16px; align-items:center; justify-content:space-between; border-top:1px solid var(--border); border-bottom-left-radius:8px; border-bottom-right-radius:8px; z-index:100; box-shadow:0 -4px 12px rgba(0,0,0,0.3)">
-            <span id="lyrics-share-count" style="font-size:14px; color:var(--tp); font-weight:500;">0/2 Seçildi</span>
-            <div style="display:flex;gap:8px">
-              <button class="btn-cancel" id="btn-share-cancel" style="padding:6px 14px;font-size:13px">İptal</button>
-              <button class="btn-primary-small" id="btn-share-continue" style="padding:6px 14px;font-size:13px"
-                disabled>Oluştur</button>
-            </div>
-          </div>
+          <!-- Inline lyrics share action bar removed to avoid duplicate IDs -->
           <div class="np-lyrics-not-found" id="np-lyrics-not-found" style="display:none">
             <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32" opacity="0.3">
               <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
@@ -1773,34 +1765,66 @@
 
   <!-- Collaborative Playlists Modal -->
   <div class="modal-overlay" id="overlay-collab" style="display:none; z-index: 2500;">
-    <div class="modal" id="modal-collab" style="max-width:500px; padding:24px;">
-      <div class="modal-header"
-        style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
-        <h2 style="font-size:20px; font-weight:700">Ortak Ekle</h2>
+    <div class="modal" id="modal-collab" style="max-width:520px; padding:0; border-radius:16px; overflow:hidden;">
+      <!-- Modal Header -->
+      <div style="padding:24px 28px 0 28px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:40px; height:40px; border-radius:12px; background:rgba(29,185,84,0.15); display:flex; align-items:center; justify-content:center;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1DB954" stroke-width="2" width="20" height="20">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+              <path d="M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+          </div>
+          <div>
+            <h2 style="font-size:18px; font-weight:700; margin:0;">Ortak Ekle</h2>
+            <p style="font-size:12px; color:var(--tm); margin:0; margin-top:2px;">Playlist'e arkadaşlarını ekle</p>
+          </div>
+        </div>
         <button class="modal-close" id="btn-close-collab"
-          style="background:none; border:none; color:var(--ts); cursor:pointer;">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+          style="background:rgba(255,255,255,0.06); border:none; color:var(--ts); cursor:pointer; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; transition:all 0.2s;">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
             <path
               d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
           </svg>
         </button>
       </div>
-      <div class="modal-body" style="display:flex; flex-direction:column; gap:20px">
-        <div style="display:flex; gap:10px">
-          <div class="input-group" style="flex:1; margin-bottom:0">
-            <label for="collab-username">Kullanıcı Adı (Örn: ali)</label>
-            <input type="text" id="collab-username" placeholder="Ortak eklenecek kullanıcı"
-              style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-elevated); color:#fff;">
+
+      <div style="padding:20px 28px 28px 28px; display:flex; flex-direction:column; gap:20px;">
+        <!-- Search Input with Autocomplete -->
+        <div style="position:relative;" id="collab-search-container">
+          <div style="position:relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--tm)" stroke-width="2" width="16" height="16"
+              style="position:absolute; left:14px; top:50%; transform:translateY(-50%); pointer-events:none; z-index:1;">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input type="text" id="collab-username" placeholder="Kullanıcı ara... (ör: ali, mehmet)"
+              autocomplete="off"
+              style="width:100%; padding:13px 16px 13px 42px; border-radius:12px; border:1px solid var(--border); background:var(--bg-elevated); color:#fff; font-size:14px; outline:none; transition:all 0.2s;">
           </div>
-          <button class="btn-primary" id="btn-add-collab"
-            style="padding:0 20px; border-radius:8px; align-self:flex-end; height:45px">Ekle</button>
+          <!-- Autocomplete Dropdown -->
+          <div id="collab-search-results" 
+            style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:6px; background:var(--bg-card, #1a1a2e); border:1px solid var(--border); border-radius:12px; max-height:220px; overflow-y:auto; z-index:10; box-shadow: 0 12px 40px rgba(0,0,0,0.5); backdrop-filter:blur(12px);">
+            <!-- Populated by JS -->
+          </div>
         </div>
 
+        <!-- Divider -->
+        <div style="height:1px; background:var(--border); margin:0 -28px; width:calc(100% + 56px);"></div>
+
+        <!-- Existing Collaborators -->
         <div>
-          <h3 style="font-size:14px; color:var(--ts); margin-bottom:12px">Mevcut Ortaklar</h3>
+          <h3 style="font-size:13px; color:var(--ts); margin-bottom:12px; font-weight:600; display:flex; align-items:center; gap:6px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+            </svg>
+            Mevcut Ortaklar
+          </h3>
           <div id="collab-list"
-            style="display:flex; flex-direction:column; gap:12px; max-height:200px; overflow-y:auto">
-            <!-- Collaborators will be populated here -->
+            style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
             <div class="empty-state" style="padding:20px 0; font-size:13px; color:var(--tm)">Yükleniyor...</div>
           </div>
         </div>
@@ -1821,7 +1845,7 @@
 
       <div
         style="display:flex; align-items:center; width:100%; margin-top:60px; background: rgba(0,0,0,0.3); padding: 40px; border-radius: 32px; backdrop-filter: blur(20px);">
-        <img id="card-cover-img" src=""
+        <img id="card-cover-img"
           style="width:160px; height:160px; border-radius:24px; box-shadow:0 10px 40px rgba(0,0,0,0.4); object-fit:cover; margin-right:40px;">
         <div style="display:flex; flex-direction:column; gap:16px; flex:1;">
           <span id="card-song-title"
@@ -1857,7 +1881,7 @@
     <div class="fs-content">
       <div class="fs-vinyl-container">
         <div class="fs-vinyl" id="fs-vinyl">
-          <img src="" alt="" id="fs-vinyl-img">
+          <img alt="" id="fs-vinyl-img">
           <div class="fs-vinyl-hole"></div>
         </div>
       </div>
@@ -1979,121 +2003,7 @@
   <script src="../js/supabase.js"></script>
   <script src="../js/player.js"></script>
   <script src="../js/app.js"></script>
-  <script>
-    // Crossfade UI - standalone init
-    (function () {
-      function setupCrossfade() {
-        const btn = document.getElementById('btn-crossfade');
-        const popup = document.getElementById('crossfade-popup');
-        const toggle = document.getElementById('crossfade-toggle');
-        const durationSection = document.getElementById('crossfade-duration-section');
-        const durationValue = document.getElementById('crossfade-duration-value');
-        const sliderTrack = document.getElementById('crossfade-slider-track');
-        const sliderFill = document.getElementById('crossfade-slider-fill');
-        const sliderKnob = document.getElementById('crossfade-slider-knob');
-        const modeSection = document.getElementById('crossfade-mode-section');
-        const modeBtns = document.querySelectorAll('.crossfade-mode-btn');
 
-        if (!btn || !popup || typeof player === 'undefined') {
-          console.warn('[Crossfade] Elements not found, retrying...');
-          setTimeout(setupCrossfade, 500);
-          return;
-        }
-
-        console.log('[Crossfade] Initializing UI');
-
-        // Load saved state
-        toggle.checked = player.crossfadeEnabled;
-        btn.classList.toggle('active', player.crossfadeEnabled);
-        durationSection.style.opacity = player.crossfadeEnabled ? '1' : '0.4';
-        durationSection.style.pointerEvents = player.crossfadeEnabled ? 'auto' : 'none';
-        if (modeSection) {
-          modeSection.style.opacity = player.crossfadeEnabled ? '1' : '0.4';
-          modeSection.style.pointerEvents = player.crossfadeEnabled ? 'auto' : 'none';
-        }
-
-        // Init active mode btn
-        modeBtns.forEach(b => {
-          if (b.dataset.mode === (player.crossfadeMode || 'eq')) {
-            modeBtns.forEach(x => x.classList.remove('active'));
-            b.classList.add('active');
-          }
-        });
-
-        const MIN_DUR = 2, MAX_DUR = 12;
-
-        function updateSlider(dur) {
-          const pct = ((dur - MIN_DUR) / (MAX_DUR - MIN_DUR)) * 100;
-          sliderFill.style.width = pct + '%';
-          sliderKnob.style.left = pct + '%';
-          durationValue.textContent = dur + 's';
-        }
-        updateSlider(player.crossfadeDuration);
-
-        // Toggle popup
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var sleepPopup = document.getElementById('sleep-timer-popup');
-          if (sleepPopup) sleepPopup.style.display = 'none';
-          popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
-        });
-
-        // Close on outside click
-        document.addEventListener('click', function (e) {
-          if (!e.target.closest('.crossfade-wrapper')) {
-            popup.style.display = 'none';
-          }
-        });
-
-        // Toggle checkbox
-        toggle.addEventListener('change', function () {
-          player.setCrossfade(toggle.checked, player.crossfadeDuration, player.crossfadeMode);
-          durationSection.style.opacity = toggle.checked ? '1' : '0.4';
-          durationSection.style.pointerEvents = toggle.checked ? 'auto' : 'none';
-          if (modeSection) {
-            modeSection.style.opacity = toggle.checked ? '1' : '0.4';
-            modeSection.style.pointerEvents = toggle.checked ? 'auto' : 'none';
-          }
-          if (typeof showToast === 'function') {
-            showToast(toggle.checked ? 'Crossfade aktif 🎶' : 'Crossfade kapatıldı', toggle.checked ? 'success' : 'info');
-          }
-        });
-
-        // Mode Selection
-        modeBtns.forEach(btn => {
-          btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            if (!player.crossfadeEnabled) return; // ignore clicks if disabled
-            modeBtns.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            const newMode = this.dataset.mode;
-            player.setCrossfade(player.crossfadeEnabled, player.crossfadeDuration, newMode);
-          });
-        });
-
-        // Duration slider
-        var dragging = false;
-        function onSliderMove(cx) {
-          var rect = sliderTrack.getBoundingClientRect();
-          var pct = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
-          var dur = Math.round(MIN_DUR + pct * (MAX_DUR - MIN_DUR));
-          updateSlider(dur);
-          player.setCrossfade(player.crossfadeEnabled, dur, player.crossfadeMode);
-        }
-
-        sliderTrack.addEventListener('mousedown', function (e) { dragging = true; onSliderMove(e.clientX); e.preventDefault(); });
-        sliderKnob.addEventListener('mousedown', function (e) { dragging = true; e.preventDefault(); e.stopPropagation(); });
-        document.addEventListener('mousemove', function (e) { if (dragging) onSliderMove(e.clientX); });
-        document.addEventListener('mouseup', function () { dragging = false; });
-        sliderTrack.addEventListener('click', function (e) { onSliderMove(e.clientX); });
-
-        console.log('[Crossfade] UI ready, enabled:', player.crossfadeEnabled, 'duration:', player.crossfadeDuration);
-      }
-
-      // Start after a short delay to ensure everything is loaded
-      setTimeout(setupCrossfade, 400);
-    })();
-  </script>
   <script>
     // ===== Auto Update In-App Progress =====
     (function () {

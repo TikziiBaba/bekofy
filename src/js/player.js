@@ -28,30 +28,8 @@ class MusicPlayer {
     this.animationId = null;
     this.isFullscreen = false;
 
-    // ===== DJ Crossfade Engine =====
-    this._crossfadeAudio = new Audio(); // Secondary audio element for crossfade
-    this._crossfadeAudio.crossOrigin = 'anonymous';
-    this._crossfadeInterval = null;
-    this._isCrossfading = false;
-    this._crossfadeTriggered = false; // Prevents double-trigger per song
-
-    // Web Audio nodes for DJ filter effects
-    this._cfAudioCtx = null;
-    this._cfSourceA = null; // source for outgoing (primary) audio during crossfade
-    this._cfSourceB = null; // source for incoming (secondary) audio during crossfade
-    this._cfFilterA = null; // low-pass filter on outgoing track
-    this._cfFilterB = null; // high-pass filter on incoming track
-    this._cfGainA = null;   // gain node for outgoing
-    this._cfGainB = null;   // gain node for incoming
-    this._cfConnectedElements = new WeakSet(); // track which Audio elements already have sources
-
-    // Load crossfade settings from localStorage
-    const savedCF = localStorage.getItem('bekofy_crossfade');
-    const cfSettings = savedCF ? JSON.parse(savedCF) : {};
-    this.crossfadeEnabled = cfSettings.enabled || false;
-    this.crossfadeDuration = cfSettings.duration || 6; // seconds
-    // Modes: 'classic' | 'eq' | 'echo' | 'power-cut'
-    this.crossfadeMode = cfSettings.mode || 'eq';
+    this.animationId = null;
+    this.isFullscreen = false;
   }
 
   saveState(song) {
@@ -59,8 +37,20 @@ class MusicPlayer {
       localStorage.setItem('bekofy_last_song', JSON.stringify({
         song: song,
         queue: this.queue,
-        currentIndex: this.currentIndex
+        currentIndex: this.currentIndex,
+        currentTime: this.audio ? this.audio.currentTime : 0
       }));
+    }
+  }
+
+  saveCurrentTime() {
+    const saved = localStorage.getItem('bekofy_last_song');
+    if (saved && this.audio && !isNaN(this.audio.currentTime) && this.audio.currentTime > 0) {
+      try {
+        const state = JSON.parse(saved);
+        state.currentTime = this.audio.currentTime;
+        localStorage.setItem('bekofy_last_song', JSON.stringify(state));
+      } catch (e) {}
     }
   }
 
@@ -69,12 +59,24 @@ class MusicPlayer {
     const saved = localStorage.getItem('bekofy_last_song');
     if (saved) {
       try {
-        const { song, queue, currentIndex } = JSON.parse(saved);
+        const { song, queue, currentIndex, currentTime } = JSON.parse(saved);
         if (song) {
           this.queue = queue || [song];
           this.currentIndex = currentIndex || 0;
           this.updateUI(song);
-          // Just prepare UI, don't auto play
+          
+          // Preload audio so the duration is visible on the UI
+          if (typeof getSongUrl === 'function') {
+            getSongUrl(song.file_path).then(url => {
+              this.audio.src = url;
+              this.audio.addEventListener('loadedmetadata', () => {
+                if (currentTime) {
+                  this.audio.currentTime = currentTime;
+                  this.onTimeUpdate(); // Update progress bar
+                }
+              }, { once: true });
+            }).catch(e => console.warn('Preload error:', e));
+          }
         }
       } catch (e) {
         console.error('State load error:', e);
@@ -89,25 +91,16 @@ class MusicPlayer {
     }
 
     try {
-      // If crossfading into this song, the audio is already set up on _crossfadeAudio
-      if (this._isCrossfading) {
-        // Crossfade completed — swap handled in _performCrossfade
-        this._isCrossfading = false;
-      } else {
-        // Normal play (no crossfade in progress)
-        this._abortCrossfade();
-        this.initVisualizer();
-        const url = await getSongUrl(song.file_path);
-        this.audio.src = url;
-        this.audio.volume = this.volume;
-        // Because audio context needs user interaction to resume
-        if (this.audioCtx && this.audioCtx.state === 'suspended') {
-          this.audioCtx.resume();
-        }
-        this.audio.play();
+      this.initVisualizer();
+      const url = await getSongUrl(song.file_path);
+      this.audio.src = url;
+      this.audio.volume = this.volume;
+      // Because audio context needs user interaction to resume
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
       }
+      this.audio.play();
 
-      this._crossfadeTriggered = false; // Reset for new song
       this.isPlaying = true;
       this.updateUI(song);
       this.updatePlayButton();
@@ -149,12 +142,14 @@ class MusicPlayer {
     this.isPlaying = !this.isPlaying;
     this.updatePlayButton();
 
-    // Discord RPC & Mini Player sync
     const song = this.getCurrentSong();
     if (song) {
       if (this.isPlaying) {
         this.updateDiscordRPC(song, true);
       } else {
+        // Save current time when paused
+        this.saveCurrentTime();
+        
         // Duraklatıldığında Discord RPC'yi tamamen kaldır (sayaç başlamasın)
         if (window.electronAPI && window.electronAPI.clearDiscordRPC) {
           window.electronAPI.clearDiscordRPC();
@@ -175,16 +170,12 @@ class MusicPlayer {
     }
   }
 
-  next(fromCrossfade = false) {
+  next() {
     if (this.queue.length === 0) return;
     if (this.isShuffle) {
       this.currentIndex = Math.floor(Math.random() * this.queue.length);
     } else {
       this.currentIndex = (this.currentIndex + 1) % this.queue.length;
-    }
-    if (fromCrossfade) {
-      // When called from crossfade, the audio swap is already done
-      this._isCrossfading = true;
     }
     this.playSong(this.queue[this.currentIndex]);
   }
@@ -220,9 +211,6 @@ class MusicPlayer {
   setVolume(vol) {
     this.volume = Math.max(0, Math.min(1, vol));
     this.audio.volume = this.volume;
-    if (this._cfAudioCtx && this._cfGainA && !this._isCrossfading && !this._crossfadeTriggered) {
-        this._cfGainA.gain.setValueAtTime(this.volume, this._cfAudioCtx.currentTime);
-    }
     localStorage.setItem('bekofy_volume', this.volume.toString());
     this.updateVolumeUI();
   }
@@ -239,6 +227,7 @@ class MusicPlayer {
     this.repeatMode = modes[(idx + 1) % 3];
     const btn = document.getElementById('btn-repeat');
     btn.classList.toggle('active', this.repeatMode !== 'none');
+    btn.classList.toggle('active-one', this.repeatMode === 'one');
   }
 
   // Event Handlers
@@ -258,27 +247,8 @@ class MusicPlayer {
     if (fsKnob) fsKnob.style.left = percent + '%';
     if (fsTime) fsTime.textContent = this.formatTime(currentTime);
 
-    // Mini Player progress sync
     if (window.electronAPI && window.electronAPI.updateMiniPlayerProgress) {
       window.electronAPI.updateMiniPlayerProgress({ percent });
-    }
-
-    // ===== Crossfade trigger check =====
-    if (
-      this.crossfadeEnabled &&
-      !this._crossfadeTriggered &&
-      !this._isCrossfading &&
-      this.repeatMode !== 'one' &&
-      duration > 0 &&
-      (duration - currentTime) <= this.crossfadeDuration &&
-      (duration - currentTime) > 0.3 // Don't trigger at very end
-    ) {
-      // Check if there's a next song to crossfade to
-      const hasNext = this.repeatMode === 'all' || this.currentIndex < this.queue.length - 1;
-      if (hasNext && this.queue.length > 1) {
-        this._crossfadeTriggered = true;
-        this._performCrossfade();
-      }
     }
   }
 
@@ -297,10 +267,6 @@ class MusicPlayer {
   }
 
   onEnded() {
-    // If crossfade already transitioned to next song, skip
-    if (this._crossfadeTriggered && this.crossfadeEnabled) {
-      return;
-    }
     if (this.repeatMode === 'one') {
       this.audio.currentTime = 0;
       this.audio.play();
@@ -325,8 +291,6 @@ class MusicPlayer {
   }
 
   onError(e) {
-    // Suppress errors during crossfade transitions (old audio src cleared)
-    if (this._isCrossfading || this._crossfadeTriggered) return;
     console.error('Audio error:', e);
     showToast('Şarkı yüklenirken hata oluştu', 'error');
   }
@@ -356,313 +320,7 @@ class MusicPlayer {
     }
   }
 
-  // ===== DJ Crossfade Engine Setup =====
-  _initCFAudioCtx() {
-    if (this._cfAudioCtx) return;
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      this._cfAudioCtx = new AudioContext();
 
-      // Gain nodes for volume control
-      this._cfGainA = this._cfAudioCtx.createGain();
-      this._cfGainB = this._cfAudioCtx.createGain();
-      
-      // Filter nodes for EQ sweep (DJ style)
-      this._cfFilterA = this._cfAudioCtx.createBiquadFilter();
-      this._cfFilterB = this._cfAudioCtx.createBiquadFilter();
-
-      // Default states
-      this._cfFilterA.type = 'lowpass'; // Outgoing track gets lowpass (muffled)
-      this._cfFilterA.frequency.value = 20000; // start open
-      this._cfFilterA.Q.value = 1.0;
-
-      this._cfFilterB.type = 'highpass'; // Incoming track gets highpass (thin)
-      this._cfFilterB.frequency.value = 20; // start open
-      this._cfFilterB.Q.value = 1.0;
-
-      // Connect nodes: Source -> Filter -> Gain -> Destination
-      this._cfFilterA.connect(this._cfGainA);
-      this._cfGainA.connect(this._cfAudioCtx.destination);
-
-      this._cfFilterB.connect(this._cfGainB);
-      this._cfGainB.connect(this._cfAudioCtx.destination);
-    } catch (e) {
-      console.warn('[Crossfade] Web Audio API not supported for DJ effects', e);
-    }
-  }
-
-  async _performCrossfade() {
-    try {
-      // Determine next song index
-      let nextIndex;
-      if (this.isShuffle) {
-        nextIndex = Math.floor(Math.random() * this.queue.length);
-      } else {
-        nextIndex = (this.currentIndex + 1) % this.queue.length;
-      }
-      const nextSong = this.queue[nextIndex];
-      if (!nextSong) return;
-
-      // Pre-load next song into secondary audio
-      const url = await getSongUrl(nextSong.file_path);
-      this._crossfadeAudio.src = url;
-      this._crossfadeAudio.volume = 0; // We'll handle volume via Web Audio if available, else fallback
-      this._crossfadeAudio.currentTime = 0;
-
-      await new Promise((resolve, reject) => {
-        this._crossfadeAudio.addEventListener('canplaythrough', resolve, { once: true });
-        this._crossfadeAudio.addEventListener('error', reject, { once: true });
-        this._crossfadeAudio.load();
-      });
-
-      // Start playing secondary audio
-      this._crossfadeAudio.play();
-
-      // Setup DJ Effects
-      this._initCFAudioCtx();
-      let useWebAudio = !!this._cfAudioCtx;
-
-      if (useWebAudio) {
-        if (this._cfAudioCtx.state === 'suspended') this._cfAudioCtx.resume();
-        
-        // Connect media elements to Web Audio context (only once per element)
-        if (!this._cfConnectedElements.has(this.audio)) {
-          this._cfSourceA = this._cfAudioCtx.createMediaElementSource(this.audio);
-          this._cfConnectedElements.add(this.audio);
-        }
-        if (!this._cfConnectedElements.has(this._crossfadeAudio)) {
-          this._cfSourceB = this._cfAudioCtx.createMediaElementSource(this._crossfadeAudio);
-          this._cfConnectedElements.add(this._crossfadeAudio);
-        }
-
-        // Connect sources to filters
-        if (this._cfSourceA) {
-            this._cfSourceA.disconnect();
-            this._cfSourceA.connect(this._cfFilterA);
-        }
-        if (this._cfSourceB) {
-            this._cfSourceB.disconnect();
-            this._cfSourceB.connect(this._cfFilterB);
-        }
-
-        // Reset parameters for new transition
-        const t0 = this._cfAudioCtx.currentTime;
-        const dur = this.crossfadeDuration;
-
-        // Reset Gains
-        this._cfGainA.gain.cancelScheduledValues(t0);
-        this._cfGainA.gain.setValueAtTime(this.volume, t0);
-        
-        this._cfGainB.gain.cancelScheduledValues(t0);
-        this._cfGainB.gain.setValueAtTime(0.01, t0); // avoid 0 for exponentialRamp
-
-        // Reset Filters based on mode
-        this._cfFilterA.frequency.cancelScheduledValues(t0);
-        this._cfFilterB.frequency.cancelScheduledValues(t0);
-        
-        if (this.crossfadeMode === 'eq') {
-            // DJ Filter Sweep: 
-            // Outgoing track: Lowpass filter frequency drops from 20kHz to 100Hz (bass only)
-            this._cfFilterA.type = 'lowpass';
-            this._cfFilterA.frequency.setValueAtTime(20000, t0);
-            this._cfFilterA.frequency.exponentialRampToValueAtTime(100, t0 + dur);
-            
-            // Incoming track: Highpass filter frequency drops from 10kHz to 20Hz (comes in thin, gets full)
-            this._cfFilterB.type = 'highpass';
-            this._cfFilterB.frequency.setValueAtTime(10000, t0);
-            this._cfFilterB.frequency.exponentialRampToValueAtTime(20, t0 + dur);
-
-            // Equal power volume crossfade
-            this._cfGainA.gain.setValueCurveAtTime(this._createCosFade(1, 0), t0, dur);
-            this._cfGainB.gain.setValueCurveAtTime(this._createCosFade(0, 1), t0, dur);
-        } 
-        else if (this.crossfadeMode === 'power-cut') {
-            // Power cut: Outgoing tracks slows down and drops pitch (simulate turntable stop), incoming drops in instantly
-            // Wait, we can't easily do playbackRate envelope in web audio without a buffer source, so we'll do a quick fade and lowpass
-            this._cfFilterA.type = 'lowpass';
-            this._cfFilterA.frequency.setValueAtTime(20000, t0);
-            this._cfFilterA.frequency.exponentialRampToValueAtTime(100, t0 + dur * 0.3); // very fast muffle
-            
-            this._cfGainA.gain.linearRampToValueAtTime(0.01, t0 + dur * 0.3);
-            
-            this._cfFilterB.type = 'highpass';
-            this._cfFilterB.frequency.setValueAtTime(20, t0); // fully open
-            this._cfGainB.gain.setValueAtTime(this.volume, t0); // instant in
-        }
-        else {
-            // Classic equal power crossfade without filters
-            this._cfFilterA.type = 'lowpass';
-            this._cfFilterA.frequency.setValueAtTime(20000, t0);
-            this._cfFilterB.type = 'highpass';
-            this._cfFilterB.frequency.setValueAtTime(20, t0);
-
-            this._cfGainA.gain.setValueCurveAtTime(this._createCosFade(1, 0), t0, dur);
-            this._cfGainB.gain.setValueCurveAtTime(this._createCosFade(0, 1), t0, dur);
-        }
-
-        // Need to make sure HTML Audio elements are at max volume since Web Audio Gain nodes handle the mix
-        this.audio.volume = 1;
-        this._crossfadeAudio.volume = 1;
-      }
-
-      const fadeDuration = Math.min(this.crossfadeDuration, 12) * 1000; // ms
-      const stepInterval = 50; // ms
-      const steps = fadeDuration / stepInterval;
-      let step = 0;
-
-      // Clear any previous interval
-      if (this._crossfadeInterval) clearInterval(this._crossfadeInterval);
-
-      this._crossfadeInterval = setInterval(() => {
-        step++;
-        const progress = Math.min(step / steps, 1);
-
-        // Fallback for non-Web Audio
-        if (!useWebAudio) {
-            // Equal power crossfade math
-            const fadeOut = Math.cos(progress * 0.5 * Math.PI);
-            const fadeIn = Math.cos((1.0 - progress) * 0.5 * Math.PI);
-            
-            this.audio.volume = fadeOut * this.volume;
-            this._crossfadeAudio.volume = fadeIn * this.volume;
-        }
-
-        // Update crossfade indicator glow intensity
-        const indicator = document.getElementById('crossfade-active-indicator');
-        if (indicator) {
-          // Add pulse and color shift based on mode
-          indicator.style.opacity = Math.sin(progress * Math.PI);
-          if (this.crossfadeMode === 'eq') indicator.style.filter = `hue-rotate(${progress * 90}deg)`;
-          else indicator.style.filter = 'none';
-        }
-
-        if (progress >= 1) {
-          clearInterval(this._crossfadeInterval);
-          this._crossfadeInterval = null;
-
-          // Swap audio: stop old, new becomes primary
-          const oldAudio = this.audio;
-          oldAudio.onended = null;
-          oldAudio.onerror = null;
-          oldAudio.ontimeupdate = null;
-          oldAudio.onloadedmetadata = null;
-          oldAudio.pause();
-          oldAudio.removeAttribute('src');
-          oldAudio.load();
-
-          // Swap references
-          this.audio = this._crossfadeAudio;
-          this._crossfadeAudio = oldAudio;
-          
-          if (useWebAudio) {
-              // Swap sources
-              const oldSource = this._cfSourceA;
-              this._cfSourceA = this._cfSourceB;
-              this._cfSourceB = oldSource;
-              
-              // Disconnect from CF filters and connect directly to analyser/destination for normal playback
-              this._cfSourceA.disconnect();
-              
-              // Normal playback volume
-              this._cfGainA.gain.setValueAtTime(this.volume, this._cfAudioCtx.currentTime);
-          }
-
-          // Re-attach event listeners to new primary audio
-          this.audio.addEventListener('timeupdate', () => this.onTimeUpdate());
-          this.audio.addEventListener('ended', () => this.onEnded());
-          this.audio.addEventListener('loadedmetadata', () => this.onLoaded());
-          this.audio.addEventListener('error', (e) => this.onError(e));
-
-          if (!useWebAudio) {
-              this.audio.volume = this.volume;
-          }
-
-          // Update index and UI
-          this.currentIndex = nextIndex;
-          this._isCrossfading = true;
-          this._crossfadeTriggered = false;
-          this.playSong(nextSong);
-
-          // Restore normal visualizer routing if Web Audio Contexts aren't clashing
-          if (this.audioCtx && this.source && !useWebAudio) {
-            try {
-              this.source.disconnect();
-              this.source = this.audioCtx.createMediaElementSource(this.audio);
-              this.source.connect(this.analyser);
-              this.analyser.connect(this.audioCtx.destination);
-            } catch (e) {
-              // MediaElementSource might already be connected
-            }
-          }
-
-          // Hide indicator
-          if (indicator) {
-              indicator.style.opacity = '0';
-              indicator.style.filter = 'none';
-          }
-        }
-      }, stepInterval);
-    } catch (err) {
-      console.warn('[Crossfade] Error:', err);
-      this._crossfadeTriggered = false;
-    }
-  }
-
-  // Create equal power curve array
-  _createCosFade(start, end) {
-      const length = 100;
-      const curve = new Float32Array(length);
-      for (let i = 0; i < length; ++i) {
-          const progress = i / (length - 1);
-          if (start === 1 && end === 0) {
-              // Fade out
-              curve[i] = Math.cos(progress * 0.5 * Math.PI) * this.volume;
-          } else {
-              // Fade in
-              curve[i] = Math.cos((1.0 - progress) * 0.5 * Math.PI) * this.volume;
-          }
-      }
-      return curve;
-  }
-
-  _abortCrossfade() {
-    if (this._crossfadeInterval) {
-      clearInterval(this._crossfadeInterval);
-      this._crossfadeInterval = null;
-    }
-    this._crossfadeAudio.pause();
-    this._crossfadeAudio.src = '';
-    this._isCrossfading = false;
-    this._crossfadeTriggered = false;
-    
-    // Reset gains if using web audio
-    if (this._cfAudioCtx) {
-        this._cfGainA.gain.cancelScheduledValues(this._cfAudioCtx.currentTime);
-        this._cfGainB.gain.cancelScheduledValues(this._cfAudioCtx.currentTime);
-        this._cfGainA.gain.setValueAtTime(this.volume, this._cfAudioCtx.currentTime);
-        this._cfFilterA.frequency.setValueAtTime(20000, this._cfAudioCtx.currentTime);
-        this.audio.volume = 1; // web audio controls volume
-    } else {
-        this.audio.volume = this.volume;
-    }
-
-    const indicator = document.getElementById('crossfade-active-indicator');
-    if (indicator) indicator.style.opacity = '0';
-  }
-
-  setCrossfade(enabled, duration, mode) {
-    this.crossfadeEnabled = enabled;
-    if (duration !== undefined) this.crossfadeDuration = duration;
-    if (mode !== undefined) this.crossfadeMode = mode;
-    localStorage.setItem('bekofy_crossfade', JSON.stringify({
-      enabled: this.crossfadeEnabled,
-      duration: this.crossfadeDuration,
-      mode: this.crossfadeMode
-    }));
-    // Update UI button state
-    const btn = document.getElementById('btn-crossfade');
-    if (btn) btn.classList.toggle('active', this.crossfadeEnabled);
-  }
 
   drawVisualizer() {
     if (!this.isFullscreen || !this.analyser || !this.canvas || !this.canvasCtx) return;

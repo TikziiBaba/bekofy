@@ -464,7 +464,7 @@ async function searchPublicPlaylists(query) {
   const sb = getSupabase();
   const { data, error } = await sb
     .from('playlists')
-    .select('*, profiles(username, avatar_url)')
+    .select('*, profiles(username, avatar_url, avatar_frame)')
     .eq('is_public', true)
     .ilike('name', `%${query}%`)
     .order('created_at', { ascending: false })
@@ -481,7 +481,7 @@ async function searchUsers(query) {
 
   // Search profiles
   const profilesRes = await sb.from('profiles')
-    .select('id, username, avatar_url, role, is_banned')
+    .select('id, username, avatar_url, avatar_frame, role, is_banned')
     .neq('id', user.id)
     .ilike('username', `%${query}%`)
     .limit(20);
@@ -554,14 +554,14 @@ async function fetchUserPublicProfile(userId) {
   let profile, profileError;
   const res1 = await sb
     .from('profiles')
-    .select('id, username, avatar_url, role, banner_url')
+    .select('id, username, avatar_url, avatar_frame, role, banner_url')
     .eq('id', userId)
     .single();
   if (res1.error && res1.error.message && res1.error.message.includes('banner_url')) {
     // Fallback if banner_url column doesn't exist
     const res2 = await sb
       .from('profiles')
-      .select('id, username, avatar_url, role')
+      .select('id, username, avatar_url, avatar_frame, role')
       .eq('id', userId)
       .single();
     profile = res2.data;
@@ -739,7 +739,7 @@ async function getPlaylistCollaborators(playlistId) {
       id,
       user_id,
       added_at,
-      profiles!inner(username, avatar_url)
+      profiles!inner(username, avatar_url, avatar_frame)
     `)
     .eq('playlist_id', playlistId)
     .order('added_at', { ascending: true });
@@ -855,6 +855,25 @@ async function getRecommendedSongs(userId, allSongs, likedSongIds) {
   return recommended.slice(0, 8);
 }
 
+async function getPersonalizedMix(userId, allSongs, likedSongIds) {
+  const liked = allSongs.filter(s => likedSongIds.has(s.id));
+  const recommended = await getRecommendedSongs(userId, allSongs, likedSongIds);
+  // Pick some liked, some recommended
+  const mix = [...liked.sort(() => 0.5 - Math.random()).slice(0, 4), ...recommended.slice(0, 6)];
+  return mix.sort(() => 0.5 - Math.random());
+}
+
+async function fetchNewReleases() {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('songs')
+    .select('*')
+    .or('status.eq.approved,status.is.null')
+    .order('created_at', { ascending: false })
+    .limit(15);
+  return { data, error };
+}
+
 // ===== Reserved Usernames (Admin) =====
 
 async function fetchReservedUsernames() {
@@ -961,14 +980,14 @@ async function fetchFriends(userId) {
   const sb = getSupabase();
   const { data, error } = await sb
     .from('friendships')
-    .select('*, profiles!friendships_friend_id_fkey(id, username, avatar_url, role)')
+    .select('*, profiles!friendships_friend_id_fkey(id, username, avatar_url, avatar_frame, role)')
     .eq('user_id', userId)
     .eq('status', 'accepted');
   
   // Also fetch where user is friend_id
   const { data: data2 } = await sb
     .from('friendships')
-    .select('*, profiles!friendships_user_id_fkey(id, username, avatar_url, role)')
+    .select('*, profiles!friendships_user_id_fkey(id, username, avatar_url, avatar_frame, role)')
     .eq('friend_id', userId)
     .eq('status', 'accepted');
   
@@ -979,7 +998,7 @@ async function fetchPendingFriendRequests(userId) {
   const sb = getSupabase();
   const { data, error } = await sb
     .from('friendships')
-    .select('*, profiles!friendships_user_id_fkey(id, username, avatar_url, role)')
+    .select('*, profiles!friendships_user_id_fkey(id, username, avatar_url, avatar_frame, role)')
     .eq('friend_id', userId)
     .eq('status', 'pending');
   return { data, error };
@@ -989,7 +1008,7 @@ async function fetchFollowedArtists(userId) {
   const sb = getSupabase();
   const { data, error } = await sb
     .from('friendships')
-    .select('*, profiles!friendships_friend_id_fkey(id, username, avatar_url, role)')
+    .select('*, profiles!friendships_friend_id_fkey(id, username, avatar_url, avatar_frame, role)')
     .eq('user_id', userId)
     .eq('status', 'accepted');
     
@@ -1006,7 +1025,7 @@ async function fetchBlockedUsers(userId) {
   const sb = getSupabase();
   const { data, error } = await sb
     .from('blocked_users')
-    .select('*, profiles!blocked_users_blocked_id_fkey(id, username, avatar_url)')
+    .select('*, profiles!blocked_users_blocked_id_fkey(id, username, avatar_url, avatar_frame)')
     .eq('user_id', userId);
   return { data, error };
 }
@@ -1017,7 +1036,7 @@ async function getArtistProfiles() {
   const sb = getSupabase();
   // Fetch from both profiles (role=artist) and artists table
   const [profilesRes, artistsRes] = await Promise.all([
-    sb.from('profiles').select('id, username, avatar_url, role').eq('role', 'artist'),
+    sb.from('profiles').select('id, username, avatar_url, avatar_frame, role').eq('role', 'artist'),
     sb.from('artists').select('id, name, avatar_url').catch(() => ({ data: [], error: null }))
   ]);
   
@@ -1283,7 +1302,7 @@ async function getJamParticipants(sessionId) {
 
   if (data && data.length > 0) {
     const userIds = data.map(p => p.user_id);
-    const { data: profiles } = await sb.from('profiles').select('id, username, avatar_url').in('id', userIds);
+    const { data: profiles } = await sb.from('profiles').select('id, username, avatar_url, avatar_frame').in('id', userIds);
     return data.map(p => ({
       ...p,
       profiles: profiles?.find(prof => prof.id === p.user_id) || null
