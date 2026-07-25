@@ -1,18 +1,13 @@
 // Supabase Client Initialization
-// NOTE: In Electron, we load the Supabase JS from a CDN in HTML,
-// or we can bundle it. For simplicity, we'll use the global supabase from CDN.
-
-const SUPABASE_URL = 'https://dtdsawyynetqlbosrvqo.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZHNhd3l5bmV0cWxib3NydnFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDU0MDUsImV4cCI6MjA5MDEyMTQwNX0.6rKxp51OOj_b1iKtz_21ZkHcvbThNF4w5sPdP7RAua4';
-
-let supabaseClient = null;
+// Config is centralized in config.js (loaded before this script in HTML)
+var supabaseClient = null;
 
 function getSupabase() {
   if (!supabaseClient) {
     if (typeof supabase !== 'undefined' && supabase.createClient) {
-      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supabaseClient = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
     } else {
-      console.error('Supabase JS library not loaded!');
+      console.error('[Bekofy] Supabase JS library not loaded!');
     }
   }
   return supabaseClient;
@@ -116,13 +111,78 @@ async function getSession() {
 
 // ===== Songs Functions =====
 
+async function fetchApprovedSongs() {
+  const sb = getSupabase();
+  if (!sb) return { data: [], error: new Error('Supabase client not initialized') };
+  try {
+    const { data, error } = await sb
+      .from('songs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    return { data: data || [], error };
+  } catch (err) {
+    console.error('fetchApprovedSongs error:', err);
+    return { data: [], error: err };
+  }
+}
+
 async function fetchAllSongs() {
   const sb = getSupabase();
-  const { data, error } = await sb
-    .from('songs')
-    .select('*')
-    .order('created_at', { ascending: false });
-  return { data, error };
+  if (!sb) return { data: [], error: new Error('Supabase client not initialized') };
+  try {
+    const { data, error } = await sb
+      .from('songs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    return { data: data || [], error };
+  } catch (err) {
+    console.error('fetchAllSongs error:', err);
+    return { data: [], error: err };
+  }
+}
+
+async function fetchNewReleases(limit = 10) {
+  const sb = getSupabase();
+  if (!sb) return { data: [], error: null };
+  try {
+    const { data, error } = await sb
+      .from('songs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return { data: data || [], error };
+  } catch (err) {
+    return { data: [], error: err };
+  }
+}
+
+async function fetchLikedSongs(userId) {
+  const sb = getSupabase();
+  if (!sb) return { data: [], error: null };
+  try {
+    const { data, error } = await sb
+      .from('user_likes')
+      .select('song_id')
+      .eq('user_id', userId);
+    return { data: data || [], error };
+  } catch (err) {
+    return { data: [], error: err };
+  }
+}
+
+function subscribeToSongs(callback) {
+  try {
+    const sb = getSupabase();
+    if (!sb || !sb.channel) return null;
+    return sb.channel('public:songs')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, payload => {
+        if (typeof callback === 'function') callback(payload);
+      })
+      .subscribe();
+  } catch (err) {
+    console.warn('[Supabase] Songs subscription error:', err);
+    return null;
+  }
 }
 
 async function searchSongs(query) {
@@ -464,11 +524,19 @@ async function searchPublicPlaylists(query) {
   const sb = getSupabase();
   const { data, error } = await sb
     .from('playlists')
-    .select('*, profiles(username, avatar_url, avatar_frame)')
+    .select('*, profiles(username, avatar_url, avatar_frame, role)')
     .eq('is_public', true)
     .ilike('name', `%${query}%`)
     .order('created_at', { ascending: false })
     .limit(20);
+    
+  if (data) {
+    data.forEach(p => {
+      if (p.profiles && p.profiles.role === 'user') {
+        p.profiles.avatar_frame = 'none';
+      }
+    });
+  }
   return { data, error };
 }
 
@@ -546,59 +614,52 @@ async function removeFriend(friendId) {
 async function fetchUserPublicProfile(userId) {
   const sb = getSupabase();
   
-  // Check if blocked first
-  const isBlocked = await checkIfBlockedInternal(userId);
+  // Launch all independent queries concurrently to save time
+  const [session, isBlocked, profileRes, followersCountRes, playlistsCountRes] = await Promise.all([
+    sb.auth.getSession(),
+    checkIfBlockedInternal(userId),
+    sb.from('profiles').select('id, username, avatar_url, avatar_frame, role, banner_url').eq('id', userId).single(),
+    sb.from('friendships').select('*', { count: 'exact', head: true }).eq('friend_id', userId).eq('status', 'accepted'),
+    sb.from('playlists').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_public', true)
+  ]);
+
   if (isBlocked) return { data: null, error: { message: 'Bu profil bulunamadı veya gizli.' } };
   
-  // Fetch profile
-  let profile, profileError;
-  const res1 = await sb
-    .from('profiles')
-    .select('id, username, avatar_url, avatar_frame, role, banner_url')
-    .eq('id', userId)
-    .single();
-  if (res1.error && res1.error.message && res1.error.message.includes('banner_url')) {
-    // Fallback if banner_url column doesn't exist
-    const res2 = await sb
-      .from('profiles')
-      .select('id, username, avatar_url, avatar_frame, role')
-      .eq('id', userId)
-      .single();
+  let profile = profileRes.data;
+  let profileError = profileRes.error;
+
+  // Fallback for banner_url if it doesn't exist (only run if the first query failed because of it)
+  if (profileError && profileError.message && profileError.message.includes('banner_url')) {
+    const res2 = await sb.from('profiles').select('id, username, avatar_url, avatar_frame, role').eq('id', userId).single();
     profile = res2.data;
     profileError = res2.error;
-  } else {
-    profile = res1.data;
-    profileError = res1.error;
   }
-    
+
   if (profileError) return { data: null, error: profileError };
   
-  // Fetch followers count
-  const { count: followersCount } = await sb
-    .from('friendships')
-    .select('*', { count: 'exact', head: true })
-    .eq('friend_id', userId)
-    .eq('status', 'accepted');
-    
-  // Fetch public playlists count
-  const { count: playlistsCount } = await sb
-    .from('playlists')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('is_public', true);
-    
-  // Check friendship status
-  const isFriend = await checkFriendshipInternal(userId);
-    
-  return { 
-    data: { 
-      ...profile, 
-      followers_count: followersCount || 0,
-      playlists_count: playlistsCount || 0,
-      is_following: isFriend
-    }, 
-    error: null 
-  };
+  if (profile && profile.role === 'user') {
+    profile.avatar_frame = 'none';
+    profile.banner_url = null;
+  }
+  profile.followers_count = followersCountRes.count || 0;
+  profile.playlists_count = playlistsCountRes.count || 0;
+  
+  // Check if current user is following
+  let isFollowing = false;
+  if (session.data?.session) {
+    const currentId = session.data.session.user.id;
+    const { data: followData } = await sb
+      .from('friendships')
+      .select('id')
+      .eq('user_id', currentId)
+      .eq('friend_id', userId)
+      .eq('status', 'accepted')
+      .maybeSingle();
+    isFollowing = !!followData;
+  }
+  profile.is_following = isFollowing;
+  
+  return { data: profile, error: null };
 }
 
 async function blockUser(blockedId) {
@@ -739,7 +800,7 @@ async function getPlaylistCollaborators(playlistId) {
       id,
       user_id,
       added_at,
-      profiles!inner(username, avatar_url, avatar_frame)
+      profiles!inner(username, avatar_url, avatar_frame, role)
     `)
     .eq('playlist_id', playlistId)
     .order('added_at', { ascending: true });
@@ -747,6 +808,14 @@ async function getPlaylistCollaborators(playlistId) {
   if (error) {
     console.error('getPlaylistCollaborators error:', error);
     return [];
+  }
+  
+  if (data) {
+    data.forEach(c => {
+      if (c.profiles && c.profiles.role === 'user') {
+        c.profiles.avatar_frame = 'none';
+      }
+    });
   }
   return data;
 }
@@ -944,6 +1013,119 @@ async function adminDeleteUser(userId) {
   return { error: profileError };
 }
 
+// ===== User Access & IP Telemetry Logging =====
+
+async function logUserAccess(user = null, profile = null) {
+  try {
+    const sb = getSupabase();
+    if (!sb) return;
+
+    const uId = user?.id || profile?.id || window.currentUserProfile?.id || null;
+    const uName = profile?.username || window.currentUserProfile?.username || user?.email?.split('@')[0] || 'Misafir';
+
+    const uAgent = navigator.userAgent || 'Bilinmiyor';
+    const screenRes = typeof window !== 'undefined' ? `${window.screen.width}x${window.screen.height}` : 'Bilinmiyor';
+    const lang = navigator.language || 'tr-TR';
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const platform = navigator.platform || 'Bilinmiyor';
+
+    let ipAddress = 'Bilinmiyor';
+    let city = 'Bilinmiyor';
+    let country = 'Bilinmiyor';
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const geo = await res.json();
+        ipAddress = geo.ip || ipAddress;
+        city = geo.city || city;
+        country = geo.country_name || country;
+      }
+    } catch (e) {
+      try {
+        const controller2 = new AbortController();
+        const timeoutId2 = setTimeout(() => controller2.abort(), 2000);
+        const res2 = await fetch('https://api.ipify.org?format=json', { signal: controller2.signal });
+        clearTimeout(timeoutId2);
+        if (res2.ok) {
+          const ipData = await res2.json();
+          ipAddress = ipData.ip || ipAddress;
+        }
+      } catch (err) {}
+    }
+
+    await sb.from('user_access_logs').insert({
+      user_id: uId,
+      username: uName,
+      ip_address: ipAddress,
+      user_agent: uAgent,
+      device_info: platform,
+      screen_res: screenRes,
+      language: lang,
+      timezone: tz,
+      city: city,
+      country: country
+    });
+
+    if (uId) {
+      await sb.from('profiles').update({
+        last_ip: ipAddress,
+        last_login_at: new Date().toISOString()
+      }).eq('id', uId);
+    }
+  } catch (err) {
+    console.warn('[Telemetry] Log kaydedilemedi:', err.message);
+  }
+}
+
+async function getUserAccessLogs(limit = 50) {
+  const sb = getSupabase();
+  if (!sb) return { data: [], error: 'Veritabanı yok' };
+  const { data, error } = await sb
+    .from('user_access_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return { data: data || [], error };
+}
+
+async function getLogsForUser(userIdOrUsername, limit = 30) {
+  const sb = getSupabase();
+  if (!sb) return { data: [], error: 'Veritabanı yok' };
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdOrUsername);
+
+  let query = sb.from('user_access_logs').select('*').order('created_at', { ascending: false }).limit(limit);
+
+  if (isUuid) {
+    query = query.eq('user_id', userIdOrUsername);
+  } else {
+    query = query.ilike('username', userIdOrUsername);
+  }
+
+  const { data, error } = await query;
+  return { data: data || [], error };
+}
+
+async function findUserByIdOrUsername(searchTerm) {
+  const sb = getSupabase();
+  if (!sb) return { profile: null, error: 'Veritabanı yok' };
+
+  const term = searchTerm.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term);
+
+  if (isUuid) {
+    const { data: byId } = await sb.from('profiles').select('*').eq('id', term).maybeSingle();
+    if (byId) return { profile: byId, error: null };
+  }
+
+  const { data: byName, error } = await sb.from('profiles').select('*').ilike('username', term).maybeSingle();
+  return { profile: byName, error };
+}
+
 // ===== Friend System =====
 
 async function sendFriendRequest(userId, friendId) {
@@ -1037,7 +1219,7 @@ async function getArtistProfiles() {
   // Fetch from both profiles (role=artist) and artists table
   const [profilesRes, artistsRes] = await Promise.all([
     sb.from('profiles').select('id, username, avatar_url, avatar_frame, role').eq('role', 'artist'),
-    sb.from('artists').select('id, name, avatar_url').catch(() => ({ data: [], error: null }))
+    sb.from('artists').select('id, name, avatar_url').then(res => res, err => ({ data: [], error: null }))
   ]);
   
   const profileArtists = (profilesRes.data || []).map(p => ({
@@ -1097,12 +1279,13 @@ async function getArtistByName(artistName) {
 }
 
 async function getSongsByArtist(artistName) {
+  if (!artistName) return { data: [], error: null };
   const sb = getSupabase();
-  // Search for exact match or as part of multi-artist (comma separated)
+  const safeName = artistName.trim();
   const { data, error } = await sb
     .from('songs')
     .select('*')
-    .or(`artist.ilike.${artistName},artist.ilike.%${artistName}%`)
+    .ilike('artist', `%${safeName}%`)
     .order('created_at', { ascending: false });
   return { data: data || [], error };
 }
@@ -1322,7 +1505,7 @@ async function getJamSession(sessionId) {
 }
 
 // Supabase Realtime Broadcast for Jam
-let _jamChannel = null;
+var _jamChannel = null;
 
 function subscribeToJam(sessionId, onEvent) {
   const sb = getSupabase();
@@ -1430,7 +1613,7 @@ async function updateUserActivity(songId, isPlaying) {
   }
 }
 
-let _friendActivityChannel = null;
+var _friendActivityChannel = null;
 
 function subscribeToFriendActivity(friendIds, onUpdate) {
   const sb = getSupabase();

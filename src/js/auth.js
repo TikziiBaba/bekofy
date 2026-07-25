@@ -1,6 +1,9 @@
 // ===== Auth Page Logic =====
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Automatic session check & auto-login
+  checkSession();
+
   // Titlebar controls
   document.getElementById('btn-minimize').addEventListener('click', () => window.electronAPI.minimize());
   document.getElementById('btn-maximize').addEventListener('click', () => window.electronAPI.maximize());
@@ -82,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         showToast('Giriş başarılı! Yönlendiriliyorsunuz...', 'success');
         setTimeout(() => {
-          window.electronAPI.navigateToApp();
+          safeNavigateToApp();
         }, 1000);
       }
     } catch (err) {
@@ -157,20 +160,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Enter key support for forms
-  document.getElementById('login-password').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('btn-login').click();
+  document.getElementById('login-password')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-login')?.click();
   });
-  document.getElementById('register-password').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('btn-register').click();
+  document.getElementById('register-password')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-register')?.click();
   });
 
   // Google login
-  document.getElementById('btn-google-login').addEventListener('click', handleGoogleLogin);
-  document.getElementById('btn-google-register').addEventListener('click', handleGoogleLogin);
+  document.getElementById('btn-google-login')?.addEventListener('click', handleGoogleLogin);
+  document.getElementById('btn-google-register')?.addEventListener('click', handleGoogleLogin);
 
   // Apple login
-  document.getElementById('btn-apple-login').addEventListener('click', handleAppleLogin);
-  document.getElementById('btn-apple-register').addEventListener('click', handleAppleLogin);
+  document.getElementById('btn-apple-login')?.addEventListener('click', handleAppleLogin);
+  document.getElementById('btn-apple-register')?.addEventListener('click', handleAppleLogin);
 
   // Check existing session
   checkSession();
@@ -191,6 +194,8 @@ function setupPasswordToggle(toggleId, inputId) {
   const toggle = document.getElementById(toggleId);
   const input = document.getElementById(inputId);
   
+  if (!toggle || !input) return;
+
   toggle.addEventListener('click', () => {
     const isPassword = input.type === 'password';
     input.type = isPassword ? 'text' : 'password';
@@ -254,7 +259,7 @@ async function handleAppleLogin() {
 }
 
 // OAuth sonrası session'ı kontrol et
-let pollInterval = null;
+var pollInterval = null;
 function startSessionPolling() {
   if (pollInterval) clearInterval(pollInterval);
   
@@ -283,7 +288,7 @@ function startSessionPolling() {
         
         showToast('Giriş başarılı! Yönlendiriliyorsunuz...', 'success');
         setTimeout(() => {
-          window.electronAPI.navigateToApp();
+          safeNavigateToApp();
         }, 1000);
       }
     } catch (err) {
@@ -300,14 +305,54 @@ function startSessionPolling() {
   }, 300000);
 }
 
+function waitForSupabase(timeout = 8000) {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const check = () => {
+      if (typeof supabase !== 'undefined' && typeof getSupabase === 'function' && getSupabase()) {
+        resolve(true);
+      } else if (Date.now() - startTime >= timeout) {
+        resolve(false);
+      } else {
+        setTimeout(check, 100);
+      }
+    };
+    check();
+  });
+}
+
+function safeNavigateToApp() {
+  if (window.electronAPI && window.electronAPI.navigateToApp) {
+    window.electronAPI.navigateToApp();
+  } else {
+    window.location.href = 'app.html';
+  }
+}
+
 // Check existing session
 async function checkSession() {
   try {
-    const session = await getSession();
+    // Önce Supabase'in yüklenmesini bekle
+    const loaded = await waitForSupabase(8000);
+    if (!loaded) {
+      console.warn('[Auth] Supabase yüklenemedi, oturum kontrolü atlandı');
+      showToast('Sunucuya bağlanılamadı', 'error');
+      return;
+    }
+
+    // 5 saniye timeout ekle - Supabase yanıt vermezse bekleme
+    const session = await Promise.race([
+      getSession(),
+      new Promise(resolve => setTimeout(() => resolve(null), 5000))
+    ]);
     if (session) {
       // Check ban status before auto-login
       const sb = getSupabase();
-      const { data: profile } = await sb.from('profiles').select('is_banned').eq('id', session.user.id).maybeSingle();
+      const profilePromise = sb.from('profiles').select('is_banned').eq('id', session.user.id).maybeSingle();
+      const { data: profile } = await Promise.race([
+        profilePromise,
+        new Promise(resolve => setTimeout(() => resolve({ data: null }), 5000))
+      ]);
       if (!profile) {
         try {
           const username = session.user.user_metadata?.username || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Kullanıcı';
@@ -319,7 +364,7 @@ async function checkSession() {
         await sb.auth.signOut();
         return; // Stay on auth page
       }
-      window.electronAPI.navigateToApp();
+      safeNavigateToApp();
     }
   } catch (err) {
     // No session, stay on auth page

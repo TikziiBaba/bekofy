@@ -1,7 +1,7 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--bg-primary:#000;--bg-secondary:#0a0a0a;--bg-tertiary:#121212;--bg-elevated:#181818;--bg-highlight:#1a1a1a;--bg-card:#181818;--bg-card-hover:#282828;--green:#1DB954;--green-h:#1ed760;--green-glow:rgba(29,185,84,.3);--tp:#fff;--ts:#b3b3b3;--tm:#535353;--border:rgba(255,255,255,.06);--sw:240px;--ph:90px;--th:36px;--tb:64px;--font:'Inter',-apple-system,sans-serif;--r:8px;--rl:12px;--t:all .2s ease;--ts2:all .3s cubic-bezier(.4,0,.2,1)}
+:root{--bg-primary:#090a0f;--bg-secondary:#12131a;--bg-tertiary:#181924;--bg-elevated:#1f2130;--bg-highlight:#272a3d;--bg-card:rgba(255,255,255,.04);--bg-card-hover:rgba(255,255,255,.08);--green:#1DB954;--green-h:#1ed760;--green-glow:rgba(29,185,84,.35);--tp:#ffffff;--ts:#b3b3c6;--tm:#717185;--border:rgba(255,255,255,.08);--sw:240px;--ph:90px;--th:36px;--tb:64px;--font:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;--r:10px;--rl:16px;--t:all .2s ease;--ts2:all .3s cubic-bezier(.4,0,.2,1)}
 body{font-family:var(--font);background:var(--bg-primary);color:var(--tp);overflow:hidden;height:100vh;width:100vw;user-select:none}
-.titlebar{display:flex;align-items:center;justify-content:space-between;height:var(--th);background:rgba(0,0,0,.95);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1000;-webkit-app-region:drag}
+.titlebar{display:flex;align-items:center;justify-content:space-between;height:var(--th);background:rgba(3,7,3,.95);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1000;-webkit-app-region:drag}
 .titlebar-drag{flex:1;display:flex;align-items:center;padding-left:16px}
 .titlebar-title{font-size:12px;font-weight:600;color:var(--ts);letter-spacing:.5px}
 .titlebar-controls{display:flex;-webkit-app-region:no-drag}
@@ -586,7 +586,7 @@ body{font-family:var(--font);background:var(--bg-primary);color:var(--tp);overfl
 .cover-upload-label svg{flex-shrink:0}
 .cover-preview{position:relative;width:120px;height:120px;border-radius:var(--r);overflow:hidden;border:2px solid var(--border);cursor:pointer}
 .cover-preview img{width:100%;height:100%;object-fit:cover;transition:var(--t)}
-.cover-preview::after{content:'Değiştir';position:absolute;inset:0;background:rgba(0,0,0,0.6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;opacity:0;transition:var(--t);pointer-events:none}
+.cover-preview::after{content:'De─şi┼ştir';position:absolute;inset:0;background:rgba(0,0,0,0.6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;opacity:0;transition:var(--t);pointer-events:none}
 .cover-preview:hover::after{opacity:1}
 .cover-remove-btn{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.7);border:none;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--t);z-index:2}
 .cover-remove-btn:hover{background:rgba(255,68,68,.8)}
@@ -2831,7 +2831,7 @@ body{font-family:var(--font);background:var(--bg-primary);color:var(--tp);overfl
 }
 
 /* ============================================================
-   PREMIUM PAGE — Beautiful Animated Design
+   PREMIUM PAGE ÔÇö Beautiful Animated Design
    ============================================================ */
 
 #page-premium {

@@ -1,10 +1,5 @@
-const fs = require('fs');
-const path = 'c:/Users/dedyu/Desktop/bekir/src/js/app.js';
-let content = fs.readFileSync(path, 'utf8');
+// ===== Jam Feature - Jam Oturumları =====
 
-const jamLogic = `
-
-// ===== Jam UI & Logic =====
 function initJamUI() {
   const btnJam = document.getElementById('btn-jam');
   const modal = document.getElementById('jam-modal');
@@ -54,7 +49,7 @@ function initJamUI() {
       showToast('Jam oluşturmak için giriş yapmalısınız', 'error');
       return;
     }
-    
+
     btnCreate.innerHTML = '<div class="spinner" style="width:16px;height:16px;display:inline-block;"></div> Oluşturuluyor...';
     btnCreate.disabled = true;
 
@@ -64,23 +59,37 @@ function initJamUI() {
 
       activeCodeText.textContent = data.code;
       bannerCode.textContent = '#' + data.code;
-      
+
       player.setJamSession(data.id, true);
-      
-      subscribeToJam(data.id, (payload) => {
+
+      const subscribed = await subscribeToJam(data.id, (payload) => {
         player.handleJamEvent(payload);
       });
-      
+
+      if (!subscribed) {
+        Logger.error('Host channel subscription failed');
+        showToast('Jam kanalına bağlanılamadı, tekrar deneyin', 'error');
+        player.clearJamSession();
+        return;
+      }
+
       updateJamModalState();
       refreshJamParticipants(data.id);
-      
+
+      // Save initial state if already playing a song
+      const currentSong = player.getCurrentSong();
+      if (currentSong) {
+        updateJamState(data.id, currentSong.id, player.isPlaying, player.audio.currentTime || 0)
+          .catch(err => Logger.warn('Initial state save error:', err));
+      }
+
       // Share code to clipboard optionally
       navigator.clipboard.writeText(data.code).then(() => {
         showToast('Jam kodu panoya kopyalandı!', 'success');
       });
 
     } catch (err) {
-      console.error(err);
+      Logger.error(err);
       showToast('Jam oluşturulamadı', 'error');
     } finally {
       btnCreate.innerHTML = '✨ Jam Oluştur';
@@ -90,10 +99,10 @@ function initJamUI() {
 
   btnJoin.addEventListener('click', async () => {
     if (!currentUserId) {
-      showToast('Jam\\'e katılmak için giriş yapmalısınız', 'error');
+      showToast('Jam\'e katılmak için giriş yapmalısınız', 'error');
       return;
     }
-    
+
     const code = inputCode.value.trim();
     if (code.length !== 6) {
       showToast('Geçerli bir kod girin', 'error');
@@ -106,22 +115,54 @@ function initJamUI() {
       if (findErr || !session) throw new Error('Oturum bulunamadı');
 
       await joinJamSession(session.id, currentUserId);
-      
+
       activeCodeText.textContent = session.code;
       bannerCode.textContent = '#' + session.code;
-      
+
       player.setJamSession(session.id, false);
-      
-      subscribeToJam(session.id, (payload) => {
+
+      const subscribed = await subscribeToJam(session.id, (payload) => {
         player.handleJamEvent(payload);
       });
-      
+
+      if (!subscribed) {
+        Logger.error('Guest channel subscription failed');
+        showToast('Jam kanalına bağlanılamadı, tekrar deneyin', 'error');
+        player.clearJamSession();
+        return;
+      }
+
       updateJamModalState();
       refreshJamParticipants(session.id);
-      showToast('Jam\\'e katılıldı!', 'success');
-      
+
+      // Fetch current playback state from DB and sync
+      try {
+        const jamState = await getJamSession(session.id);
+        if (jamState && jamState.current_song_id) {
+          const songToPlay = (typeof allSongs !== 'undefined' ? allSongs : []).find(s => s.id === jamState.current_song_id);
+          if (songToPlay) {
+            await player.playSong(songToPlay, typeof allSongs !== 'undefined' ? allSongs : [songToPlay]);
+            // Seek to the approximate position (account for network delay)
+            if (jamState.current_position > 0) {
+              const elapsed = (Date.now() - new Date(jamState.updated_at).getTime()) / 1000;
+              const targetPos = jamState.is_playing ? jamState.current_position + elapsed : jamState.current_position;
+              player.audio.currentTime = Math.min(targetPos, player.audio.duration || targetPos);
+            }
+            if (!jamState.is_playing) {
+              player.audio.pause();
+              player.isPlaying = false;
+              player.updatePlayButton();
+            }
+          }
+        }
+      } catch (syncErr) {
+        Logger.warn('Initial state sync error:', syncErr);
+      }
+
+      showToast('Jam\'e katılıldı!', 'success');
+
     } catch (err) {
-      console.error(err);
+      Logger.error(err);
       showToast('Jam oturumu bulunamadı veya katılamadınız', 'error');
     } finally {
       btnJoin.disabled = false;
@@ -138,7 +179,7 @@ function initJamUI() {
         await leaveJamSession(player.jamSessionId, currentUserId);
       }
     } catch (e) {
-      console.error(e);
+      Logger.error(e);
     }
     player.clearJamSession();
     unsubscribeFromJam();
@@ -161,31 +202,37 @@ async function refreshJamParticipants(sessionId) {
     countEl.textContent = participants.length;
     bannerCount.textContent = participants.length + ' kişi';
 
-    list.innerHTML = participants.map(p => \`
+    list.innerHTML = participants.map(p => {
+      let frameClass = '';
+      if (p.profiles?.avatar_frame && p.profiles.avatar_frame !== 'none') {
+        frameClass = ' ' + getAvatarFrameClass(p.profiles.avatar_frame);
+      }
+      return `
       <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px;">
-        <img src="\${p.profiles?.avatar_url || '../assets/default_avatar.png'}" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;">
-        <span style="flex: 1; font-size: 14px;">\${p.profiles?.username || 'Kullanıcı'}</span>
-        \${p.user_id === player.jamSessionId ? '<span style="font-size: 10px; background: var(--primary-color); color: black; padding: 2px 6px; border-radius: 10px;">Kurucu</span>' : ''}
+        <div class="jam-avatar-wrap${frameClass}" style="position:relative; width:30px; height:30px; border-radius:50%">
+          <img src="${p.profiles?.avatar_url || '../assets/default_avatar.png'}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position:relative; z-index:2">
+        </div>
+        <span style="flex: 1; font-size: 14px;">${p.profiles?.username || 'Kullanıcı'}</span>
+        ${p.user_id === player.jamSessionId ? '<span style="font-size: 10px; background: var(--primary-color); color: black; padding: 2px 6px; border-radius: 10px;">Kurucu</span>' : ''}
       </div>
-    \`).join('');
+    `}).join('');
   } catch (err) {
-    console.error('Participant refresh err:', err);
+    Logger.error('Participant refresh error:', err);
   }
 }
 
-// Ensure initJamUI is called when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    initJamUI();
-    renderHeroBanner();
-    renderDailyMixes();
-  }, 1000);
-});
-`;
-
-if (!content.includes('initJamUI')) {
-  fs.writeFileSync(path, content + jamLogic, 'utf8');
-  console.log('Jam logic appended');
-} else {
-  console.log('Jam logic already present');
+// Called when the host ends the session (received by guests via broadcast)
+function onJamEnded() {
+  const activeBanner = document.getElementById('jam-active-banner');
+  if (activeBanner) activeBanner.style.display = 'none';
+  const btnJam = document.getElementById('btn-jam');
+  if (btnJam) {
+    btnJam.classList.remove('active');
+    btnJam.style.color = '';
+  }
+  const createSection = document.getElementById('jam-create-section');
+  const activeSection = document.getElementById('jam-active-section');
+  if (createSection) createSection.style.display = 'block';
+  if (activeSection) activeSection.style.display = 'none';
+  unsubscribeFromJam();
 }

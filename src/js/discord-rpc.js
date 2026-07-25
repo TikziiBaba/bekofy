@@ -10,16 +10,16 @@
 // 5. Aşağıdaki CLIENT_ID'yi kendi oluşturduğun Application ID ile değiştir
 // 6. Rich Presence > Art Assets kısmına bir "spotify_logo" görseli yükle (yeşil Spotify logosu)
 
-const RPC = require('discord-rpc');
+var RPC = require('discord-rpc');
 
 // Discord Application Client ID
 // ÖNEMLİ: Kendi "Spotify" adlı Discord uygulamanın ID'sini buraya yaz!
-const CLIENT_ID = process.env.DISCORD_SPOTIFY_CLIENT_ID || '1496238375747715122';
+var CLIENT_ID = process.env.DISCORD_SPOTIFY_CLIENT_ID || '1496238375747715122';
 
-let rpcClient = null;
-let isConnected = false;
-let reconnectTimer = null;
-let isFirstConnectionAttempt = true;
+var rpcClient = null;
+var isConnected = false;
+var reconnectTimer = null;
+var isFirstConnectionAttempt = true;
 
 async function initDiscordRPC() {
   if (rpcClient) {

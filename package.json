@@ -8,13 +8,18 @@
     "start:electron": "electron .",
     "start:website": "serve website -l 3333",
     "build": "electron-builder --win",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch"
   },
   "author": "Bekir",
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1053.0",
+    "@aws-sdk/lib-storage": "^3.1085.0",
     "@supabase/supabase-js": "^2.100.1",
     "discord-rpc": "^4.0.1",
     "dotenv": "^17.3.1",
@@ -30,6 +35,10 @@
     "concurrently": "^9.2.1",
     "electron": "^41.0.4",
     "electron-builder": "^26.8.1",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "jest": "^29.7.0",
     "serve": "^14.2.6"
   }
 }

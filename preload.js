@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateMiniPlayerProgress: (data) => ipcRenderer.send('update-mini-player-progress', data),
   // Listen for mini player commands
   onMiniCommand: (callback) => ipcRenderer.on('mini-command', (event, command, data) => callback(command, data)),
+  // Mini Player Window APIs
+  sendMiniCommand: (command, data) => ipcRenderer.send('mini-player-command', command, data),
+  onMiniPlayerUpdate: (callback) => ipcRenderer.on('mini-player-update', (event, data) => callback(data)),
+  onMiniPlayerProgress: (callback) => ipcRenderer.on('mini-player-progress', (event, data) => callback(data)),
   
   // File & R2 actions
   uploadToR2: (filePath, fileName) => ipcRenderer.invoke('upload-to-r2', filePath, fileName),

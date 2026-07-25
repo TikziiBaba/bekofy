@@ -1,5 +1,9 @@
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId("com.bekir.bekofy");
+}
 const fs = require('fs');
 require('dotenv').config();
 const { execSync } = require('child_process');
@@ -38,9 +42,10 @@ function cleanCache() {
     try {
       if (fs.existsSync(cachePath)) {
         fs.rmSync(cachePath, { recursive: true, force: true });
+        console.log('[Cache] Silindi:', cachePath);
       }
     } catch (e) {
-      // Ignore errors during cleanup
+      console.warn('[Cache] Silinemedi (kilitli olabilir):', cachePath, e.message);
     }
   });
 }
@@ -51,9 +56,7 @@ function createWindow() {
     width: 600,
     height: 450,
     frame: false,
-    transparent: true,
     backgroundColor: '#0a0a0a',
-    alwaysOnTop: true,
     icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: {
       nodeIntegration: false,
@@ -62,7 +65,13 @@ function createWindow() {
   });
   
   const isAdmin = isAppRunningAsAdmin();
-  splashWindow.loadFile('src/pages/splash.html', { query: { admin: isAdmin.toString() } });
+  const splashPath = path.join(__dirname, 'src/pages/splash.html');
+  splashWindow.loadFile(splashPath, { query: { admin: isAdmin.toString() } });
+
+  // Splash page fail handler
+  splashWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('[Splash] Yüklenemedi:', errorCode, errorDescription, validatedURL);
+  });
 
   // Create Main Window in background
   mainWindow = new BrowserWindow({
@@ -81,27 +90,56 @@ function createWindow() {
     show: false,
   });
 
-  mainWindow.loadFile('src/pages/auth.html');
+  // Auth page fail handler
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('[Main] Auth sayfası yüklenemedi:', errorCode, errorDescription, validatedURL);
+    mainWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<html><body style="background:#0a0a0a;color:#fff;display:flex;align-items:center;justify-content:center;font-family:sans-serif;height:100vh;margin:0"><div style="text-align:center"><h2>Bekofy</h2><p>Sayfa yüklenemedi. İnternet bağlantınızı kontrol edin.</p><button onclick="location.reload()" style="background:#1DB954;color:#000;border:none;padding:10px 24px;border-radius:6px;margin-top:12px;cursor:pointer">Tekrar Dene</button></div></html>'));
+  });
+
+  const authPath = path.join(__dirname, 'src/pages/auth.html');
+  mainWindow.loadFile(authPath);
+
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Renderer Log L${level}] ${message} (${sourceId}:${line})`);
+  });
 
   // Tarayıcı geri tuşuyla sayfa geçişini engelle ve uygulama içi geri tuşunu tetikle
   mainWindow.webContents.on('before-input-event', (event, input) => {
+    // F12 ile DevTools aç
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      mainWindow.webContents.toggleDevTools();
+    }
+
     // Mouse geri/ileri tuşları veya Alt+Left/Right ile sayfa geçişini engelle
     if (input.type === 'keyDown') {
       const isBack = (input.alt && input.key === 'Left') || input.key === 'BrowserBack';
       const isForward = (input.alt && input.key === 'Right') || input.key === 'BrowserForward';
       
+      // Always prevent default browser navigation
       if (isBack || isForward) {
         event.preventDefault();
       }
 
       if (isBack) {
-        mainWindow.webContents.send('app-go-back');
+        // Only send go-back if we're on the app page (not auth)
+        const currentUrl = mainWindow.webContents.getURL();
+        if (currentUrl.includes('app.html')) {
+          mainWindow.webContents.send('app-go-back');
+        }
       }
     }
   });
 
+  // Also handle mouse back/forward buttons at OS level
+  mainWindow.webContents.on('did-navigate', () => {
+    // Clear history after any navigation to prevent back to auth
+    const currentUrl = mainWindow.webContents.getURL();
+    if (currentUrl.includes('app.html')) {
+      setTimeout(() => mainWindow.webContents.clearHistory(), 100);
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
-    // Wait for the splash screen animation to finish (e.g. 3.5 seconds)
     setTimeout(() => {
       if (splashWindow && !splashWindow.isDestroyed()) {
         splashWindow.close();
@@ -111,6 +149,16 @@ function createWindow() {
       }
     }, 3500);
   });
+
+  // Safety fallback: splash'i 15 saniye sonra zorla kapat
+  setTimeout(() => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+    }
+  }, 15000);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -139,14 +187,19 @@ ipcMain.on('window-close', () => {
 // Navigate to main app after login
 ipcMain.on('navigate-to-app', () => {
   if (mainWindow) {
-    mainWindow.loadFile('src/pages/app.html');
+    const appPath = path.join(__dirname, 'src/pages/app.html');
+    mainWindow.loadFile(appPath).then(() => {
+      // Clear navigation history so back button can't return to auth.html
+      mainWindow.webContents.clearHistory();
+    });
   }
 });
 
 // Navigate to auth page (logout)
 ipcMain.on('navigate-to-auth', () => {
   if (mainWindow) {
-    mainWindow.loadFile('src/pages/auth.html');
+    const authPath = path.join(__dirname, 'src/pages/auth.html');
+    mainWindow.loadFile(authPath);
   }
 });
 
@@ -175,15 +228,15 @@ function createMiniPlayer() {
     width: 360,
     height: 100,
     frame: false,
-    transparent: true,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    backgroundColor: '#00000000',
+    backgroundColor: '#0a0a0a',
     icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
 
@@ -206,6 +259,9 @@ function createMiniPlayer() {
     miniPlayerWindow = null;
     // Show main window when mini player closes
     if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
       mainWindow.show();
       mainWindow.focus();
     }

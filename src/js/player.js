@@ -32,9 +32,14 @@ class MusicPlayer {
     this.isFullscreen = false;
   }
 
+  getStorageKey() {
+    const userId = window.currentUserId || localStorage.getItem('bekofy_current_user_id') || 'guest';
+    return `bekofy_last_song_${userId}`;
+  }
+
   saveState(song) {
     if (song) {
-      localStorage.setItem('bekofy_last_song', JSON.stringify({
+      localStorage.setItem(this.getStorageKey(), JSON.stringify({
         song: song,
         queue: this.queue,
         currentIndex: this.currentIndex,
@@ -44,19 +49,19 @@ class MusicPlayer {
   }
 
   saveCurrentTime() {
-    const saved = localStorage.getItem('bekofy_last_song');
+    const saved = localStorage.getItem(this.getStorageKey());
     if (saved && this.audio && !isNaN(this.audio.currentTime) && this.audio.currentTime > 0) {
       try {
         const state = JSON.parse(saved);
         state.currentTime = this.audio.currentTime;
-        localStorage.setItem('bekofy_last_song', JSON.stringify(state));
+        localStorage.setItem(this.getStorageKey(), JSON.stringify(state));
       } catch (e) {}
     }
   }
 
   loadState() {
     this.updateVolumeUI(); // Ensure volume bar matches saved volume on load
-    const saved = localStorage.getItem('bekofy_last_song');
+    const saved = localStorage.getItem(this.getStorageKey());
     if (saved) {
       try {
         const { song, queue, currentIndex, currentTime } = JSON.parse(saved);
@@ -425,6 +430,8 @@ class MusicPlayer {
     const pauseIcon = document.getElementById('icon-pause');
     const fsPlayIcon = document.getElementById('fs-icon-play');
     const fsPauseIcon = document.getElementById('fs-icon-pause');
+    const npPlayIcon = document.getElementById('np-icon-play');
+    const npPauseIcon = document.getElementById('np-icon-pause');
     const fsVinyl = document.getElementById('fs-vinyl');
     
     if (this.isPlaying) {
@@ -432,12 +439,16 @@ class MusicPlayer {
       if (pauseIcon) pauseIcon.style.display = 'block';
       if (fsPlayIcon) fsPlayIcon.style.display = 'none';
       if (fsPauseIcon) fsPauseIcon.style.display = 'block';
+      if (npPlayIcon) npPlayIcon.style.display = 'none';
+      if (npPauseIcon) npPauseIcon.style.display = 'block';
       if (fsVinyl) fsVinyl.classList.add('playing');
     } else {
       if (playIcon) playIcon.style.display = 'block';
       if (pauseIcon) pauseIcon.style.display = 'none';
       if (fsPlayIcon) fsPlayIcon.style.display = 'block';
       if (fsPauseIcon) fsPauseIcon.style.display = 'none';
+      if (npPlayIcon) npPlayIcon.style.display = 'block';
+      if (npPauseIcon) npPauseIcon.style.display = 'none';
       if (fsVinyl) fsVinyl.classList.remove('playing');
     }
   }
@@ -665,7 +676,7 @@ class MusicPlayer {
 }
 
 // Global player instance
-const player = new MusicPlayer();
+var player = new MusicPlayer();
 
 // Listen for mini player commands
 if (window.electronAPI && window.electronAPI.onMiniCommand) {
