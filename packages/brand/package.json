@@ -1,0 +1,10 @@
+{
+  "name": "@bekofy/brand",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bekofy logosu (Bemol) ve platform ikonları",
+  "files": [
+    "src",
+    "assets"
+  ]
+}
