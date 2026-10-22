@@ -1,0 +1,18 @@
+{
+  "duration": {
+    "$type": "duration",
+    "$description": "Arayüz geçişleri 100-300ms; hiçbir şey 500ms'yi geçmez.",
+    "fast": { "$value": "120ms" },
+    "base": { "$value": "200ms" },
+    "moderate": { "$value": "280ms" },
+    "slow": { "$value": "400ms" },
+    "ambient": { "$value": "480ms", "$description": "Kapak değişince ortam renginin yumuşak geçişi." }
+  },
+  "easing": {
+    "$type": "cubicBezier",
+    "standard": { "$value": [0.2, 0, 0, 1], "$description": "Durum değişimleri." },
+    "enter": { "$value": [0, 0, 0, 1], "$description": "Girişler (ease-out)." },
+    "exit": { "$value": [0.3, 0, 1, 1], "$description": "Çıkışlar (ease-in)." },
+    "emphasized": { "$value": [0.05, 0.7, 0.1, 1], "$description": "Şimdi çalıyor sayfasının açılması gibi büyük geçişler." }
+  }
+}

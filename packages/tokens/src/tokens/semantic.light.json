@@ -1,0 +1,86 @@
+{
+  "$description": "Açık tema semantik renkleri. semantic.dark.json aynı yolları koyu tema için tanımlar.",
+  "color": {
+    "$type": "color",
+    "surface": {
+      "page": { "$value": "{color.neutral.50}" },
+      "raised": { "$value": "{color.neutral.0}" },
+      "sunken": { "$value": "{color.neutral.100}" },
+      "inverse": { "$value": "{color.neutral.950}" }
+    },
+    "text": {
+      "primary": { "$value": "{color.neutral.950}" },
+      "secondary": { "$value": "{color.neutral.700}" },
+      "tertiary": { "$value": "{color.neutral.600}", "$description": "Yer tutucu, meta bilgi. Yalnızca sayfa ve kart yüzeylerinde; üst bant camında kullanılmaz." },
+      "disabled": { "$value": "{color.neutral.400}" },
+      "inverse": { "$value": "{color.neutral.50}" }
+    },
+    "border": {
+      "subtle": { "$value": "{color.neutral.150}", "$description": "Yalnızca süs: ayraç, kart kenarı." },
+      "strong": { "$value": "{color.neutral.550}", "$description": "Kontrol sınırı; sayfaya karşı en az 3:1." }
+    },
+    "fill": {
+      "subtle": { "$value": "alpha({color.neutral.950}, 0.06)" },
+      "muted": { "$value": "alpha({color.neutral.950}, 0.1)" }
+    },
+    "state": {
+      "hover": { "$value": "alpha({color.neutral.950}, 0.06)" },
+      "pressed": { "$value": "alpha({color.neutral.950}, 0.1)" }
+    },
+    "accent": {
+      "$description": "Varsayılan marka vurgusu. Çalan şarkının kapağı varsa çalışma anında deriveDynamicTheme() bunları ezer.",
+      "default": { "$value": "{color.teal.400}" },
+      "on": { "$value": "{color.neutral.950}" },
+      "text": { "$value": "{color.teal.700}" }
+    },
+    "focus": { "$value": "{color.teal.600}" },
+    "destructive": {
+      "default": { "$value": "{color.red.600}" },
+      "on": { "$value": "{color.neutral.0}" }
+    },
+    "feedback": {
+      "danger": {
+        "text": { "$value": "{color.red.700}" },
+        "bg": { "$value": "{color.red.50}" },
+        "border": { "$value": "{color.red.300}" }
+      },
+      "warning": {
+        "text": { "$value": "{color.amber.800}" },
+        "bg": { "$value": "{color.amber.50}" },
+        "border": { "$value": "{color.amber.300}" }
+      },
+      "success": {
+        "text": { "$value": "{color.green.700}" },
+        "bg": { "$value": "{color.green.50}" },
+        "border": { "$value": "{color.green.300}" }
+      },
+      "info": {
+        "text": { "$value": "{color.teal.700}" },
+        "bg": { "$value": "{color.teal.50}" },
+        "border": { "$value": "{color.teal.300}" }
+      }
+    },
+    "glass": {
+      "chrome": {
+        "$description": "İçerik üstünde kayan bantlar (oynatıcı, üst menü, sekme çubuğu). Altında saf siyah olsa bile metin AA geçer.",
+        "bg": { "$value": "alpha({color.neutral.0}, 0.8)" },
+        "solid": { "$value": "{color.neutral.0}" }
+      },
+      "panel": {
+        "$description": "Ortam zemini üstündeki kartlar ve sayfalar. Yalnızca ortam renklerinin üstünde garanti verir.",
+        "bg": { "$value": "alpha({color.neutral.0}, 0.55)" },
+        "solid": { "$value": "{color.neutral.0}" }
+      },
+      "edge": { "$value": "alpha({color.neutral.0}, 0.7)", "$description": "Camın üst kenarındaki ışık çizgisi." },
+      "hairline": { "$value": "alpha({color.neutral.950}, 0.08)" }
+    },
+    "ambient": {
+      "$description": "Kapak yokken kullanılan ortam zemini (degrade durakları).",
+      "1": { "$value": "oklch(0.93 0.04 202.4)" },
+      "2": { "$value": "oklch(0.9 0.03 217)" },
+      "3": { "$value": "oklch(0.965 0.015 187)" }
+    },
+    "scrim": { "$value": "alpha({color.neutral.1000}, 0.4)" },
+    "shadow": { "$value": "alpha({color.neutral.1000}, 0.12)" }
+  }
+}

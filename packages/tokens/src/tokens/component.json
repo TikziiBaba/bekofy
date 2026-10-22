@@ -1,0 +1,67 @@
+{
+  "$description": "Bileşen token'ları yalnızca semantik katmana başvurur; CSS'te var() olarak kalır, böylece tema ve dinamik kapak rengi değişince kendiliğinden güncellenir.",
+  "component": {
+    "button": {
+      "primary": {
+        "bg": { "$type": "color", "$value": "{color.accent.default}" },
+        "fg": { "$type": "color", "$value": "{color.accent.on}" }
+      },
+      "secondary": {
+        "bg": { "$type": "color", "$value": "{color.fill.subtle}" },
+        "fg": { "$type": "color", "$value": "{color.text.primary}" }
+      },
+      "ghost": {
+        "fg": { "$type": "color", "$value": "{color.text.primary}" }
+      },
+      "destructive": {
+        "bg": { "$type": "color", "$value": "{color.destructive.default}" },
+        "fg": { "$type": "color", "$value": "{color.destructive.on}" }
+      },
+      "radius": { "$type": "dimension", "$value": "{radius.full}" },
+      "height": { "$type": "dimension", "$value": "{size.control.md}" }
+    },
+    "iconButton": {
+      "fg": { "$type": "color", "$value": "{color.text.secondary}" },
+      "fgActive": { "$type": "color", "$value": "{color.text.primary}" },
+      "size": { "$type": "dimension", "$value": "{size.control.md}" }
+    },
+    "slider": {
+      "track": { "$type": "color", "$value": "{color.fill.muted}" },
+      "fill": { "$type": "color", "$value": "{color.text.primary}" },
+      "thumb": { "$type": "color", "$value": "{color.text.primary}" }
+    },
+    "nav": {
+      "fg": { "$type": "color", "$value": "{color.text.secondary}" },
+      "fgActive": { "$type": "color", "$value": "{color.text.primary}" },
+      "bgActive": { "$type": "color", "$value": "{color.fill.subtle}" },
+      "indicator": { "$type": "color", "$value": "{color.accent.text}" }
+    },
+    "input": {
+      "bg": { "$type": "color", "$value": "{color.fill.subtle}" },
+      "fg": { "$type": "color", "$value": "{color.text.primary}" },
+      "placeholder": { "$type": "color", "$value": "{color.text.tertiary}" },
+      "border": { "$type": "color", "$value": "{color.border.strong}" },
+      "radius": { "$type": "dimension", "$value": "{radius.full}" },
+      "height": { "$type": "dimension", "$value": "{size.control.md}" }
+    },
+    "chip": {
+      "bg": { "$type": "color", "$value": "{color.fill.subtle}" },
+      "fg": { "$type": "color", "$value": "{color.text.primary}" },
+      "bgSelected": { "$type": "color", "$value": "{color.text.primary}" },
+      "fgSelected": { "$type": "color", "$value": "{color.text.inverse}" }
+    },
+    "player": {
+      "bg": { "$type": "color", "$value": "{color.glass.chrome.bg}" },
+      "height": { "$type": "dimension", "$value": "{size.layout.player}" }
+    },
+    "toast": {
+      "bg": { "$type": "color", "$value": "{color.surface.inverse}" },
+      "fg": { "$type": "color", "$value": "{color.text.inverse}" }
+    },
+    "focusRing": {
+      "color": { "$type": "color", "$value": "{color.focus}" },
+      "width": { "$type": "dimension", "$value": "2px" },
+      "offset": { "$type": "dimension", "$value": "2px" }
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "space": {
+    "$type": "dimension",
+    "$description": "4px tabanlı boşluk ölçeği.",
+    "0": { "$value": "0px" },
+    "0-5": { "$value": "2px" },
+    "1": { "$value": "4px" },
+    "1-5": { "$value": "6px" },
+    "2": { "$value": "8px" },
+    "2-5": { "$value": "10px" },
+    "3": { "$value": "12px" },
+    "3-5": { "$value": "14px" },
+    "4": { "$value": "16px" },
+    "5": { "$value": "20px" },
+    "6": { "$value": "24px" },
+    "7": { "$value": "28px" },
+    "8": { "$value": "32px" },
+    "9": { "$value": "36px" },
+    "10": { "$value": "40px" },
+    "11": { "$value": "44px" },
+    "12": { "$value": "48px" },
+    "14": { "$value": "56px" },
+    "16": { "$value": "64px" },
+    "20": { "$value": "80px" },
+    "24": { "$value": "96px" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "none": { "$value": "0px" },
+    "xs": { "$value": "4px" },
+    "sm": { "$value": "8px" },
+    "md": { "$value": "12px" },
+    "lg": { "$value": "16px" },
+    "xl": { "$value": "24px" },
+    "2xl": { "$value": "32px" },
+    "full": { "$value": "9999px" },
+    "artwork": {
+      "sm": { "$value": "{radius.xs}", "$description": "Liste satırındaki küçük kapak." },
+      "md": { "$value": "{radius.sm}" },
+      "lg": { "$value": "{radius.md}", "$description": "Şimdi çalıyor ekranındaki büyük kapak." }
+    },
+    "card": { "$value": "{radius.lg}" },
+    "control": { "$value": "{radius.md}" },
+    "sheet": { "$value": "{radius.2xl}" }
+  },
+  "size": {
+    "$type": "dimension",
+    "control": {
+      "sm": { "$value": "32px" },
+      "md": { "$value": "40px" },
+      "lg": { "$value": "48px" },
+      "xl": { "$value": "64px", "$description": "Büyük çal/duraklat düğmesi." }
+    },
+    "touch": { "$value": "44px", "$description": "Dokunmatik hedeflerin en küçük boyutu." },
+    "icon": {
+      "xs": { "$value": "16px" },
+      "sm": { "$value": "20px" },
+      "md": { "$value": "24px" },
+      "lg": { "$value": "32px" }
+    },
+    "artwork": {
+      "xs": { "$value": "40px" },
+      "sm": { "$value": "48px" },
+      "md": { "$value": "64px" },
+      "lg": { "$value": "176px" },
+      "xl": { "$value": "232px" },
+      "2xl": { "$value": "360px" }
+    },
+    "layout": {
+      "sidebar": { "$value": "272px" },
+      "player": { "$value": "88px" },
+      "miniPlayer": { "$value": "64px" },
+      "tabBar": { "$value": "64px" },
+      "content": { "$value": "1440px" },
+      "measure": { "$value": "65ch" }
+    }
+  },
+  "breakpoint": {
+    "$type": "dimension",
+    "sm": { "$value": "640px" },
+    "md": { "$value": "768px" },
+    "lg": { "$value": "1024px" },
+    "xl": { "$value": "1280px" },
+    "2xl": { "$value": "1536px" }
+  },
+  "blur": {
+    "$type": "dimension",
+    "chrome": { "$value": "28px" },
+    "panel": { "$value": "20px" },
+    "subtle": { "$value": "12px" }
+  },
+  "saturate": {
+    "$type": "number",
+    "glass": { "$value": 1.8 }
+  },
+  "opacity": {
+    "$type": "number",
+    "disabled": { "$value": 0.5 },
+    "state": {
+      "$description": "Dolgulu düğmelerde hover/basılı durumu: dolgunun üstüne yazı renginin bu oranda bindirilmesi.",
+      "hover": { "$value": 0.08 },
+      "pressed": { "$value": 0.14 }
+    }
+  },
+  "z": {
+    "$type": "number",
+    "base": { "$value": 0 },
+    "raised": { "$value": 10 },
+    "sticky": { "$value": 100 },
+    "chrome": { "$value": 200 },
+    "overlay": { "$value": 300 },
+    "modal": { "$value": 400 },
+    "popover": { "$value": 500 },
+    "toast": { "$value": 600 }
+  }
+}

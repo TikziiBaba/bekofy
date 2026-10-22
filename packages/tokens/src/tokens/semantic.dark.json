@@ -1,0 +1,82 @@
+{
+  "$description": "Koyu tema semantik renkleri. Ters çevrilmiş değil, ayrı tasarlanmış değerler.",
+  "color": {
+    "$type": "color",
+    "surface": {
+      "page": { "$value": "{color.neutral.950}" },
+      "raised": { "$value": "{color.neutral.900}" },
+      "sunken": { "$value": "{color.neutral.975}" },
+      "inverse": { "$value": "{color.neutral.50}" }
+    },
+    "text": {
+      "primary": { "$value": "{color.neutral.50}" },
+      "secondary": { "$value": "{color.neutral.300}" },
+      "tertiary": { "$value": "{color.neutral.500}", "$description": "Yer tutucu, meta bilgi. Yalnızca sayfa ve kart yüzeylerinde; üst bant camında kullanılmaz." },
+      "disabled": { "$value": "{color.neutral.700}" },
+      "inverse": { "$value": "{color.neutral.950}" }
+    },
+    "border": {
+      "subtle": { "$value": "{color.neutral.850}" },
+      "strong": { "$value": "{color.neutral.650}" }
+    },
+    "fill": {
+      "subtle": { "$value": "alpha({color.neutral.0}, 0.07)" },
+      "muted": { "$value": "alpha({color.neutral.0}, 0.12)" }
+    },
+    "state": {
+      "hover": { "$value": "alpha({color.neutral.0}, 0.07)" },
+      "pressed": { "$value": "alpha({color.neutral.0}, 0.12)" }
+    },
+    "accent": {
+      "default": { "$value": "{color.teal.400}" },
+      "on": { "$value": "{color.neutral.950}" },
+      "text": { "$value": "{color.teal.300}" }
+    },
+    "focus": { "$value": "{color.teal.300}" },
+    "destructive": {
+      "default": { "$value": "{color.red.600}" },
+      "on": { "$value": "{color.neutral.0}" }
+    },
+    "feedback": {
+      "danger": {
+        "text": { "$value": "{color.red.300}" },
+        "bg": { "$value": "{color.red.950}" },
+        "border": { "$value": "{color.red.800}" }
+      },
+      "warning": {
+        "text": { "$value": "{color.amber.300}" },
+        "bg": { "$value": "{color.amber.950}" },
+        "border": { "$value": "{color.amber.800}" }
+      },
+      "success": {
+        "text": { "$value": "{color.green.300}" },
+        "bg": { "$value": "{color.green.950}" },
+        "border": { "$value": "{color.green.800}" }
+      },
+      "info": {
+        "text": { "$value": "{color.teal.300}" },
+        "bg": { "$value": "{color.teal.950}" },
+        "border": { "$value": "{color.teal.800}" }
+      }
+    },
+    "glass": {
+      "chrome": {
+        "bg": { "$value": "alpha({color.neutral.900}, 0.8)" },
+        "solid": { "$value": "{color.neutral.900}" }
+      },
+      "panel": {
+        "bg": { "$value": "alpha({color.neutral.900}, 0.55)" },
+        "solid": { "$value": "{color.neutral.900}" }
+      },
+      "edge": { "$value": "alpha({color.neutral.0}, 0.1)" },
+      "hairline": { "$value": "alpha({color.neutral.0}, 0.06)" }
+    },
+    "ambient": {
+      "1": { "$value": "oklch(0.27 0.05 202.4)" },
+      "2": { "$value": "oklch(0.2 0.035 217)" },
+      "3": { "$value": "oklch(0.165 0.02 187)" }
+    },
+    "scrim": { "$value": "alpha({color.neutral.1000}, 0.6)" },
+    "shadow": { "$value": "alpha({color.neutral.1000}, 0.45)" }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "shadow": {
+    "$type": "shadow",
+    "$description": "Çoğu yüzey düzdür. Gölge yalnızca yüzen katmanlarda.",
+    "sm": { "$value": [{ "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px", "color": "{color.shadow}" }] },
+    "md": { "$value": [{ "offsetX": "0px", "offsetY": "4px", "blur": "16px", "spread": "-4px", "color": "{color.shadow}" }] },
+    "lg": { "$value": [{ "offsetX": "0px", "offsetY": "16px", "blur": "48px", "spread": "-12px", "color": "{color.shadow}" }] },
+    "glass": {
+      "$description": "Cam katmanın üst kenar ışığı ve yumuşak gölgesi.",
+      "$value": [
+        { "offsetX": "0px", "offsetY": "1px", "blur": "0px", "spread": "0px", "color": "{color.glass.edge}", "inset": true },
+        { "offsetX": "0px", "offsetY": "12px", "blur": "40px", "spread": "-16px", "color": "{color.shadow}" }
+      ]
+    }
+  }
+}

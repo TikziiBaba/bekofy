@@ -1,0 +1,20 @@
+{
+  "name": "@bekofy/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bekofy tasarım token'ları (DTCG) ve kapaktan dinamik tema",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./css": "./dist/tokens.css"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test"
+  }
+}
