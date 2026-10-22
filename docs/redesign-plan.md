@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0 tamamlandı (dal: `redesign`), sırada Faz 1
+Tarih: 2026-10-22 · Durum: Faz 0 ve Faz 1 tamamlandı (dal: `redesign`); prototip onayı bekleniyor, sırada Faz 2
 
 ## Kararlar
 
@@ -10,9 +10,9 @@ Tarih: 2026-10-22 · Durum: Faz 0 tamamlandı (dal: `redesign`), sırada Faz 1
 | Masaüstü | Electron kalır; arayüz React + Vite + TypeScript'e taşınır |
 | Site | Next.js; tanıtım + indirme, hesap, premium, admin paneli |
 | YouTube | Senin bilgisayarında çalışan yerel sunucu; sitedeki admin panelinden link girilir, bilgiler düzenlenip eklenir |
-| Görsel yön | Buzlu cam + kapak odaklı dinamik renk |
-| Tema | Koyu + açık |
-| Marka | İsim Bekofy kalır; yeni logo ve uygulama ikonu |
+| Görsel yön | Buzlu cam, siyah zemin, nane yeşili vurgu; çalan şarkının kapağı yalnızca arka plandaki ortam ışığını renklendirir |
+| Tema | Varsayılan siyah; açık tema ve sisteme uyma ayarlardan seçilir |
+| Marka | İsim Bekofy; Bemol logosu (küçük b = bemol işareti), nane yeşili `#2BD98A`, Bricolage Grotesque (başlık) + Geist (arayüz) |
 | Ödeme | PayTR, sonraki faz; o zamana kadar sahte kart formu kaldırılır |
 | Özellikler | Hepsi taşınır: sosyal, arkadaş aktivitesi, Jam, şarkı sözü, Wrapped, sanatçı paneli, rozetler, mini oynatıcı, Discord, çoklu hesap, admin terminali |
 | Repo | Tek repo (monorepo) |
@@ -37,6 +37,7 @@ bekofy/
 │   ├── mobile/      Expo (Expo Router), Android + iOS
 │   └── yt-server/   Node, yerel çalışır: yt-dlp + ffmpeg → R2 → Supabase
 ├── packages/
+│   ├── brand/       Logo ve platform ikonları (web, Windows, Android, iOS)
 │   ├── tokens/      Tasarım token'ları (DTCG JSON) → CSS değişkenleri + TS nesnesi
 │   ├── core/        Supabase istemcisi, tipli sorgular, kuyruk mantığı, yardımcılar
 │   └── ui/          Web ve masaüstünün ortak React bileşenleri
@@ -70,6 +71,15 @@ Doğrulama: kökte `npm install` hatasız; eski uygulama `npm run start:electron
 5. Etkileşimli HTML prototip: Ana sayfa, Arama, Kitaplık, Çalma listesi/Albüm, Sanatçı, Şimdi çalıyor, Şarkı sözü, Kuyruk, Profil, Ayarlar, Jam, Wrapped, Admin → YouTube içe aktarma ve tanıtım sayfası; masaüstü + mobil genişlikte, koyu + açık.
 
 Doğrulama: `node scripts/accuracy_report.mjs` (token, kontrast, durumlar, emoji yok), `node scripts/verify_responsive.mjs` (280/320/414px). Ardından senin görsel onayın; kod bu prototipe göre yazılır.
+
+Sonuç (tamamlandı):
+
+- `packages/brand`: Bemol logosu; siyah karo üstünde nane logo; favicon, PWA, Windows `.ico`, iOS 1024, Android adaptive ve monochrome.
+- `packages/tokens`: 320 CSS değişkeni; `deriveAmbient()` kapaktan ortam ışığı türetir, vurgu rengi sabit kalır. `npm test -w @bekofy/tokens`: iki temada tüm kontrast çiftleri, cam bandın altı saf siyah ya da saf beyazken bile AA, 2.592 kapak rengiyle ortam taraması.
+- `docs/prototype`: 14 ekran, tıklanabilir. Açmak için `docs/prototype/index.html` dosyasını tarayıcıda aç (ya da `npx serve .` ile `/docs/prototype/`). Veri değişince `node docs/prototype/build.mjs`.
+- Denetim: `node docs/prototype/check.mjs`, 27 ekran durumunu iki temada ve iki genişlikte (108 durum) axe, gerçek metin kontrastı ve 280/320/414 piksel taşma için tarar.
+- Kitte düzeltilen ölçüm hatası: `scripts/verify_states.mjs` yarı saydam zeminleri opak sayıyordu, `measure_render.mjs` ve `verify_states.mjs` `color(srgb …)` değerlerini yanlış okuyordu.
+- Bilinçli bırakılan: `taste_audit` "Senin için" rafındaki 7 eşit kartı orta seviye uyarı olarak işaretliyor; yatay albüm rafı müzik uygulamalarının bilinen kalıbı.
 
 ### Faz 2: Ortak çekirdek (`packages/core`)
 

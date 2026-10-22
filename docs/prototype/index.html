@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bekofy prototip</title>
+  <meta name="description" content="Bekofy yeniden tasarım prototipi: siyah ve nane yeşili, buzlu cam, kapaktan ortam ışığı.">
+  <meta name="theme-color" content="#080E0A">
+  <link rel="icon" href="../../packages/brand/assets/web/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../../packages/tokens/dist/tokens.css">
+  <link rel="stylesheet" href="prototype.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('bekofy-proto-theme');
+        if (t === 'light' || t === 'dark' || t === 'system') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#view">İçeriğe geç</a>
+  <div class="ambient" aria-hidden="true"></div>
+
+  <div class="app" id="app">
+    <nav class="sidebar glass-panel" aria-label="Ana menü">
+      <a class="brand" href="#home" aria-label="Bekofy ana sayfa">
+        <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true"><path d="M25 14.5A6.5 6.5 0 0 1 38 14.5V85.5A6.5 6.5 0 0 1 25 85.5ZM31 48C55 34 84 42 76 64C71 79 50 88 31 92ZM38 60L38 78C48 75 62 70 65 63C68 54 52 50 38 60Z"/></svg>
+        <span class="brand-word">bekofy</span>
+      </a>
+      <div class="nav" id="side-nav"></div>
+      <section class="side-section" aria-labelledby="side-pl-title">
+        <div class="side-heading"><h2 id="side-pl-title" class="label">Çalma listelerin</h2><button class="icon-btn sm" type="button" aria-label="Çalma listesi oluştur" data-action="toast" data-msg="Yeni çalma listesi oluşturuldu"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button></div>
+        <ul class="side-list" id="side-playlists"></ul>
+      </section>
+      <div class="side-foot">
+        <p>Prototip ekranları</p>
+        <nav aria-label="Prototip ekranları"><a class="link" href="#landing">Site</a><a class="link" href="#admin">Admin</a><a class="link" href="#wrapped">Wrapped</a></nav>
+      </div>
+    </nav>
+
+    <main class="main" id="main">
+      <header class="topbar glass-chrome">
+        <div class="nav-arrows row">
+          <button class="icon-btn sm" type="button" aria-label="Geri" data-action="back"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+          <button class="icon-btn sm" type="button" aria-label="İleri" data-action="forward"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
+        </div>
+        <span class="mobile-title" id="mobile-title" aria-hidden="true"></span>
+        <form class="search" role="search" data-action="search-submit">
+          <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+          <label class="sr-only" for="top-search">Şarkı, sanatçı veya çalma listesi ara</label>
+          <input id="top-search" type="search" placeholder="Ne dinlemek istersin?" autocomplete="off">
+        </form>
+        <div class="topbar-end">
+          <button class="icon-btn" type="button" id="theme-toggle" aria-label="Temayı değiştir"><svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg></button>
+          <a class="icon-btn" href="#settings" aria-label="Ayarlar"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></a>
+          <a class="avatar" href="#profile" aria-label="Profilin">B</a>
+        </div>
+      </header>
+      <div class="view" id="view" tabindex="-1"></div>
+    </main>
+
+    <aside class="panel glass-panel" id="panel" aria-label="Kuyruk ve arkadaşlar"></aside>
+
+    <footer class="player glass-chrome" id="player" aria-label="Oynatıcı"></footer>
+  </div>
+
+  <div class="mobile-dock" id="mobile-dock">
+    <div class="mini glass-chrome" id="mini"></div>
+    <nav class="tabbar glass-chrome" aria-label="Sekmeler" id="tabbar"></nav>
+  </div>
+
+  <div id="site" hidden></div>
+  <div id="overlay"></div>
+  <div id="toast-region" role="status" aria-live="polite"></div>
+  <div class="sr-only" id="announcer" aria-live="polite"></div>
+
+  <script src="icons.js"></script>
+  <script src="data.js"></script>
+  <script src="prototype.js"></script>
+</body>
+</html>

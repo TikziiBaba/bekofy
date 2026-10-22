@@ -1,0 +1,102 @@
+{
+  "$comment": "Prototip için kurgusal veri. Sanatçılar, şarkılar ve sözler uydurmadır. Kapaklar seed/seed2 renkleriyle CSS'te çizilir.",
+  "user": { "name": "Bekir", "handle": "bekir", "initials": "B", "followers": 128, "following": 94 },
+  "artists": [
+    { "id": "ar1", "name": "Deniz Ufku", "seed": "#E0703A", "listeners": "412.380" },
+    { "id": "ar2", "name": "Kuzey Ekspresi", "seed": "#2F6FB3", "listeners": "1.204.551" },
+    { "id": "ar3", "name": "Lale Kıyısı", "seed": "#C2389B", "listeners": "287.903" },
+    { "id": "ar4", "name": "Mavi Saat", "seed": "#D9B44A", "listeners": "96.120" },
+    { "id": "ar5", "name": "Gece Postası", "seed": "#2E8F6E", "listeners": "655.034" },
+    { "id": "ar6", "name": "Selin Aras", "seed": "#8E8E93", "listeners": "73.418" },
+    { "id": "ar7", "name": "Ayaz Kaya", "seed": "#D2453B", "listeners": "908.772" },
+    { "id": "ar8", "name": "Bant 9", "seed": "#4B4FD6", "listeners": "158.260" }
+  ],
+  "albums": [
+    { "id": "al1", "title": "Gündüz Düşleri", "artistId": "ar1", "year": 2026, "seed": "#E0703A", "seed2": "#3A1F5C", "pattern": 1 },
+    { "id": "al2", "title": "Son Vapur", "artistId": "ar2", "year": 2025, "seed": "#2F6FB3", "seed2": "#0E2240", "pattern": 2 },
+    { "id": "al3", "title": "Neon Bahçe", "artistId": "ar3", "year": 2026, "seed": "#C2389B", "seed2": "#241046", "pattern": 3 },
+    { "id": "al4", "title": "Kumdan Kaleler", "artistId": "ar4", "year": 2024, "seed": "#D9B44A", "seed2": "#5A3B1E", "pattern": 4 },
+    { "id": "al5", "title": "Gece Postası", "artistId": "ar5", "year": 2025, "seed": "#2E8F6E", "seed2": "#0B1F1A", "pattern": 5 },
+    { "id": "al6", "title": "Çatı Katı", "artistId": "ar6", "year": 2026, "seed": "#8E8E93", "seed2": "#2B2B2E", "pattern": 6 },
+    { "id": "al7", "title": "Ağustos", "artistId": "ar7", "year": 2026, "seed": "#D2453B", "seed2": "#FFD8A8", "pattern": 1 },
+    { "id": "al8", "title": "Lacivert Saatler", "artistId": "ar8", "year": 2025, "seed": "#4B4FD6", "seed2": "#12122E", "pattern": 2 }
+  ],
+  "songs": [
+    { "id": "s1", "title": "Gündüz Düşleri", "artistId": "ar1", "albumId": "al1", "duration": 214 },
+    { "id": "s2", "title": "İçimdeki Çiçekler", "artistId": "ar1", "albumId": "al1", "duration": 187 },
+    { "id": "s3", "title": "Son Vapur", "artistId": "ar2", "albumId": "al2", "duration": 241 },
+    { "id": "s4", "title": "Rüzgârın Ardından", "artistId": "ar2", "albumId": "al2", "duration": 199 },
+    { "id": "s5", "title": "Neon Bahçe", "artistId": "ar3", "albumId": "al3", "duration": 176 },
+    { "id": "s6", "title": "Pazartesi Sendromu", "artistId": "ar3", "albumId": "al3", "duration": 203 },
+    { "id": "s7", "title": "Kumdan Kaleler", "artistId": "ar4", "albumId": "al4", "duration": 228 },
+    { "id": "s8", "title": "Gece Yarısı Treni", "artistId": "ar5", "albumId": "al5", "duration": 256 },
+    { "id": "s9", "title": "Mektup", "artistId": "ar5", "albumId": "al5", "duration": 194 },
+    { "id": "s10", "title": "Çatı Katı", "artistId": "ar6", "albumId": "al6", "duration": 182 },
+    { "id": "s11", "title": "Ağustos Böceği", "artistId": "ar7", "albumId": "al7", "duration": 207 },
+    { "id": "s12", "title": "Yaz Sonu", "artistId": "ar7", "albumId": "al7", "duration": 219 },
+    { "id": "s13", "title": "Lacivert", "artistId": "ar8", "albumId": "al8", "duration": 233 },
+    { "id": "s14", "title": "Saat Üç", "artistId": "ar8", "albumId": "al8", "duration": 188 }
+  ],
+  "playlists": [
+    { "id": "pl0", "title": "Beğenilen şarkılar", "desc": "Kalp attığın her şey burada.", "seed": "#2BD98A", "seed2": "#0A3020", "pattern": 3, "songIds": ["s1", "s5", "s8", "s11", "s13", "s3"] },
+    { "id": "pl1", "title": "Günlük Karışım 1", "desc": "Deniz Ufku, Lale Kıyısı, Bant 9 ve daha fazlası", "seed": "#E0703A", "seed2": "#241046", "pattern": 4, "songIds": ["s1", "s5", "s13", "s2", "s6", "s14", "s10"] },
+    { "id": "pl2", "title": "Odaklan", "desc": "Sözsüz, sakin, uzun.", "seed": "#3E7C8C", "seed2": "#0F2229", "pattern": 5, "songIds": ["s10", "s9", "s14", "s7"] },
+    { "id": "pl3", "title": "Yol Şarkıları", "desc": "Camı aç, sesi aç.", "seed": "#D2453B", "seed2": "#2F6FB3", "pattern": 1, "songIds": ["s3", "s11", "s4", "s12", "s8"] },
+    { "id": "pl4", "title": "Gece Kuşu", "desc": "Saat ikiden sonra.", "seed": "#4B4FD6", "seed2": "#C2389B", "pattern": 2, "songIds": ["s8", "s13", "s5", "s9"] }
+  ],
+  "friends": [
+    { "name": "Elif", "initials": "E", "songId": "s5", "ago": "Şimdi" },
+    { "name": "Mert", "initials": "M", "songId": "s3", "ago": "4 dk" },
+    { "name": "Zeynep", "initials": "Z", "songId": "s11", "ago": "18 dk" },
+    { "name": "Can", "initials": "C", "songId": "s13", "ago": "1 sa" }
+  ],
+  "lyrics": {
+    "s1": [
+      [0, "Perdenin ardında ilk ışık"],
+      [7, "Kahve soğuyor, ben hâlâ buradayım"],
+      [14, "Şehir uyanıyor aşağıda"],
+      [21, "Ben bir gün daha erteliyorum"],
+      [28, "Gündüz düşlerinde kayboluyorum"],
+      [35, "Saatler yavaş, gölgeler uzun"],
+      [42, "Bir pencere, bir de sen"],
+      [49, "Aklımdan çıkmayan o şarkı"],
+      [56, "Gündüz düşlerinde kayboluyorum"],
+      [63, "Kimse aramasın bugün"],
+      [70, "Balkonda kuruyan çamaşırlar"],
+      [77, "Rüzgâr bir şeyler fısıldıyor"],
+      [84, "Ben dinlemiyorum, dalıp gidiyorum"],
+      [91, "Gündüz düşlerinde kayboluyorum"]
+    ]
+  },
+  "youtubePreview": {
+    "url": "https://www.youtube.com/watch?v=dQ9xYzS0nU1",
+    "rawTitle": "Ayaz Kaya - Yaz Sonu (Official Audio)",
+    "channel": "Ayaz Kaya",
+    "duration": 219,
+    "seed": "#D2453B",
+    "seed2": "#FFD8A8",
+    "pattern": 1
+  },
+  "wrapped": {
+    "year": 2026,
+    "minutes": "48.210",
+    "topSongId": "s1",
+    "topArtistId": "ar1",
+    "topGenre": "Indie pop",
+    "persona": "Gece Kuşu",
+    "personaNote": "Dinlemelerinin yüzde 41'i saat 23.00 ile 02.00 arasında."
+  },
+  "jam": {
+    "code": "K7Q-2M4",
+    "participants": [
+      { "name": "Bekir", "initials": "B", "host": true },
+      { "name": "Elif", "initials": "E" },
+      { "name": "Mert", "initials": "M" }
+    ],
+    "queue": [
+      { "songId": "s5", "by": "Elif" },
+      { "songId": "s3", "by": "Mert" },
+      { "songId": "s12", "by": "Bekir" }
+    ]
+  }
+}
