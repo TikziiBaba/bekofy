@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0 ve Faz 1 tamamlandı (dal: `redesign`); prototip onayı bekleniyor, sırada Faz 2
+Tarih: 2026-10-22 · Durum: Faz 0 ve 1 tamamlandı, Faz 2 büyük ölçüde tamamlandı (dal: `redesign`); migration uygulanmayı bekliyor
 
 ## Kararlar
 
@@ -89,6 +89,15 @@ Sonuç (tamamlandı):
 4. Türkçe güvenli `slugify` (ç ğ ı İ ö ş ü → dosya adı); bugünkü bozuk regex'in yerine geçer.
 
 Doğrulama: birim testleri geçiyor, tip kontrolü hatasız.
+
+Durum (2026-10-23):
+
+- Yapıldı: `packages/core` (TypeScript 6.0.3, Vitest 5.0.3, supabase-js 2.117.2). Tipler canlı şemadan üretilir: `npm run db:types -w @bekofy/core` (kökteki `.env` içinde `SUPABASE_SERVICE_ROLE_KEY` gerekir). Sorgu modülleri: auth, profiles, songs, library, playlists, social, activity, jam, lyrics, badges, media, admin. 75 birim testi; `BEKOFY_LIVE=1` ile 6 canlı salt okuma testi.
+- Canlı şemada 19 tablo var. Eski kodun sorguladığı `user_access_logs`, `listening_history`, `listening_sessions`, `premium_requests`, `upload_requests`, `artist_requests`, `playlist_follows`, `albums`, `user_likes` tabloları yok; `playlists.song_ids` sütunu yok. Bu özellikler eski uygulamada sessizce hata veriyordu.
+- Veri modeli kararları: tek yönlü takip (`follows`; `friendships`'teki kayıtlar taşınır, eski uygulama kalkana kadar tablo silinmez), şarkılar sanatçılara `song_artists` bağ tablosuyla bağlanır (bir şarkının birden çok sanatçısı olabilir), sanatçı takibi `artist_follows`, yeni tablolar `listening_history`, `artist_requests` (onay `review_artist_request` fonksiyonuyla tek işlemde), `user_access_logs` (bilinçli olarak IP ve konum yok). Premium talebi tablosu eklenmedi; premium Faz 7'de PayTR ile gelir.
+- Premium iki yerde tutuluyor (`profiles.role = 'premium'` ve `profiles.is_premium`); şimdilik `isPremium()` ikisine de bakar, Faz 7'de tek alana indirilir.
+- Bekleyen: `supabase/migrations/20261023000000_redesign_core.sql` Supabase SQL editöründe uygulanacak (geri alma: `supabase/rollbacks/`), RLS denetimi `supabase/checks/rls_audit.sql` çalıştırılıp çıktısı incelenecek. Ardından tipler yeniden üretilip yeni tablolar için sorgular eklenecek.
+- Not: kökteki `.env` şablon halindeydi; R2 anahtarları boş. Faz 3'teki yerel içe aktarma sunucusu için doldurulması gerekiyor.
 
 ### Faz 3: YouTube içe aktarma (yerel sunucu)
 
