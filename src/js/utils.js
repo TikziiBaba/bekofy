@@ -13,7 +13,7 @@ window.getInitials = function(name) {
 };
 
 window.getAvatarColor = function(name) {
-  const colors = ['#1DB954', '#E91E63', '#9C27B0', '#3F51B5', '#009688', '#FF5722', '#795548', '#607D8B', '#F44336', '#2196F3', '#4CAF50', '#FF9800'];
+  const colors = ['#7C9A72', '#E91E63', '#9C27B0', '#3F51B5', '#009688', '#FF5722', '#795548', '#607D8B', '#F44336', '#2196F3', '#4CAF50', '#FF9800'];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];

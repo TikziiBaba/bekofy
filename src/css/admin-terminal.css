@@ -6,7 +6,7 @@
   background: #090c10;
   border: 1px solid #1f242c;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 255, 102, 0.05);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(154, 184, 143, 0.05);
   display: flex;
   flex-direction: column;
   height: calc(100vh - 220px);
@@ -61,10 +61,10 @@
   gap: 6px;
   font-size: 11px;
   color: #00ff66;
-  background: rgba(0, 255, 102, 0.1);
+  background: rgba(154, 184, 143, 0.1);
   padding: 3px 8px;
   border-radius: 20px;
-  border: 1px solid rgba(0, 255, 102, 0.2);
+  border: 1px solid rgba(154, 184, 143, 0.2);
 }
 
 .admin-terminal-status-indicator {

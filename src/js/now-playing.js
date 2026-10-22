@@ -127,6 +127,7 @@ function initNowPlayingOverlay() {
 }
 
 function openNowPlayingOverlay() {
+  if (typeof toggleSidebarSlide === "function") toggleSidebarSlide(true);
   const overlay = document.getElementById('now-playing-overlay');
   if (!overlay) return;
   npOverlayOpen = true;
@@ -139,6 +140,7 @@ function openNowPlayingOverlay() {
 }
 
 function closeNowPlayingOverlay() {
+  if (typeof toggleSidebarSlide === "function") toggleSidebarSlide(false);
   const overlay = document.getElementById('now-playing-overlay');
   if (!overlay) return;
   npOverlayOpen = false;
@@ -203,7 +205,7 @@ function updateCanvasBackground(coverUrl) {
 
   if (!coverUrl) {
     // Reset to defaults
-    bgEl.style.setProperty('--canvas-color-1', 'rgba(29, 185, 84, 0.4)');
+    bgEl.style.setProperty('--canvas-color-1', 'rgba(124, 154, 114, 0.4)');
     bgEl.style.setProperty('--canvas-color-2', 'rgba(30, 60, 120, 0.4)');
     bgEl.style.setProperty('--canvas-color-3', 'rgba(120, 40, 140, 0.35)');
     bgEl.style.setProperty('--canvas-color-4', 'rgba(200, 100, 50, 0.3)');
@@ -997,7 +999,7 @@ function initLyricShare() {
           if (match) return `rgb(${match[1]}, ${match[2]}, ${match[3]})`;
           return null;
         };
-        const c1 = toRgb(c1Raw) || '#1DB954';
+        const c1 = toRgb(c1Raw) || '#7C9A72';
         const c2 = toRgb(c2Raw) || '#450af5';
         template.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
       }
@@ -1028,7 +1030,8 @@ function initLyricShare() {
 // ===== Mini Player Button =====
 function initMiniPlayerButton() {
   const btn = document.getElementById('btn-mini-player');
-  if (!btn) return;
+  if (!btn || btn.dataset.miniPlayerInitialized === 'true') return;
+  btn.dataset.miniPlayerInitialized = 'true';
 
   // Only show in Electron
   if (!window.electronAPI || !window.electronAPI.toggleMiniPlayer) {
@@ -1060,3 +1063,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initLyricShare();
   }, 200);
 });
+
+function toggleSidebarSlide(shouldHide) {
+  const playerBar = document.getElementById('player-bar') || document.querySelector('.player-bar');
+  if (shouldHide) {
+    if (playerBar) playerBar.classList.add('player-bar-slide-down');
+    document.body.classList.add('full-player-active');
+  } else {
+    if (playerBar) playerBar.classList.remove('player-bar-slide-down');
+    document.body.classList.remove('full-player-active');
+  }
+}

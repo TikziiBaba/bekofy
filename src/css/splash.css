@@ -1,38 +1,69 @@
 :root {
-  --green: #1DB954;
-  --green-light: #1ed760;
-  --bg: #0a0a0a;
+  --green: #7C9A72;
+  --green-light: #9AB88F;
+  --bg: #1A1D1C;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-body {
-  font-family: 'Inter', sans-serif;
+html, body {
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg);
-  color: #fff;
+  color: #E8EDE8;
   height: 100vh;
   width: 100vw;
+  margin: 0;
+  padding: 0;
   display: flex;
   justify-content: center;
   align-items: center;
+  text-align: center;
   overflow: hidden;
+  position: relative;
 }
 
-/* ===== Container ===== */
+/* Background Ambient Glow */
+body::before {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 154, 114, 0.15) 0%, rgba(10, 10, 10, 0) 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* ===== Splash Container (Centered in Viewport) ===== */
 .splash-container {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin: auto;
   gap: 20px;
+  width: 100%;
+  max-width: 360px;
+  padding: 24px;
+  position: relative;
+  z-index: 2;
 }
 
 /* ===== Logo ===== */
 .logo-icon {
-  width: 88px;
-  height: 88px;
+  width: 96px;
+  height: 96px;
   opacity: 0;
-  transform: scale(0.85);
+  transform: scale(0.8);
   animation: logoFadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+  
 }
 
 @keyframes logoFadeIn {
@@ -44,25 +75,28 @@ body {
 
 /* ===== Brand Name ===== */
 .brand-name {
-  font-size: 36px;
-  font-weight: 800;
-  letter-spacing: 3px;
-  color: #fff;
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #E8EDE8;
   opacity: 0;
-  transform: translateY(8px);
-  animation: fadeUp 0.6s ease-out 0.6s forwards;
+  transform: translateY(12px);
+  animation: fadeUp 0.6s ease-out 0.5s forwards;
 }
 
 /* ===== Tagline ===== */
 .brand-tagline {
   font-size: 13px;
-  font-weight: 300;
-  color: rgba(255, 255, 255, 0.4);
-  letter-spacing: 5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 2px;
   text-transform: uppercase;
   opacity: 0;
-  transform: translateY(6px);
-  animation: fadeUp 0.6s ease-out 0.9s forwards;
+  transform: translateY(8px);
+  animation: fadeUp 0.6s ease-out 0.8s forwards;
+  min-height: 20px;
+  max-width: 320px;
+  line-height: 1.5;
 }
 
 @keyframes fadeUp {
@@ -74,21 +108,21 @@ body {
 
 /* ===== Loading Bar ===== */
 .loading-bar {
-  width: 120px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  width: 140px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
   overflow: hidden;
-  margin-top: 12px;
+  margin-top: 16px;
   opacity: 0;
-  animation: fadeUp 0.4s ease-out 1.2s forwards;
+  animation: fadeUp 0.4s ease-out 1.1s forwards;
 }
 
 .loading-bar-fill {
-  width: 40%;
+  width: 45%;
   height: 100%;
   background: var(--green);
-  border-radius: 3px;
+  border-radius: 4px;
   animation: loadSlide 1.4s ease-in-out infinite;
 }
 

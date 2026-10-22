@@ -147,7 +147,7 @@ async function showSearchDiscovery() {
     }
 
     const categories = [
-      { emoji: '🎵', label: 'Tüm Şarkılar', color: '#1DB954' },
+      { emoji: '🎵', label: 'Tüm Şarkılar', color: '#7C9A72' },
       { emoji: '❤️', label: 'Beğenilenler', color: '#e74c3c' },
       { emoji: '🆕', label: 'Yeni Eklenenler', color: '#9b59b6' },
       { emoji: '🎲', label: 'Rastgele Keşfet', color: '#e67e22' },

@@ -421,6 +421,11 @@ class MusicPlayer {
     if (typeof renderQueuePanel === 'function') {
       renderQueuePanel();
     }
+
+    // Android Native MediaSession sync
+    if (typeof window.updateNativeMediaSession === 'function') {
+      window.updateNativeMediaSession(song.title, song.artist, song.cover_url, this.isPlaying);
+    }
   }
 
 
@@ -450,6 +455,11 @@ class MusicPlayer {
       if (npPlayIcon) npPlayIcon.style.display = 'block';
       if (npPauseIcon) npPauseIcon.style.display = 'none';
       if (fsVinyl) fsVinyl.classList.remove('playing');
+    }
+
+    const currentSong = this.getCurrentSong();
+    if (currentSong && typeof window.updateNativeMediaSession === 'function') {
+      window.updateNativeMediaSession(currentSong.title, currentSong.artist, currentSong.cover_url, this.isPlaying);
     }
   }
 
@@ -509,8 +519,11 @@ class MusicPlayer {
     return null;
   }
 
-  // ===== Discord Rich Presence =====
+  // ===== Discord Rich Presence & Native Media Session =====
   updateDiscordRPC(song, isPlaying) {
+    if (window.updateNativeMediaSession) {
+      window.updateNativeMediaSession(song?.title, song?.artist, isPlaying);
+    }
     if (!window.electronAPI || !window.electronAPI.updateDiscordRPC) return;
     try {
       window.electronAPI.updateDiscordRPC({

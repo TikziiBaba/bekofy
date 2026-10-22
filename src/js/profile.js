@@ -263,7 +263,7 @@ function renderSocialLinks(links, containerId) {
   if (!container) return;
 
   const platforms = {
-    spotify: { icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5.52 19.17c-.47.28-1.04.44-1.66.44-.72 0-1.3-.23-1.78-.66l-2.98-2.59c-1.25 1.03-2.76 1.65-4.45 1.65-3.87 0-7-3.13-7-7s3.13-7 7-7c2.05 0 3.88.88 5.14 2.22l2.81-2.81C17.5 2.93 15.14 2 12.5 2 6.47 2 2 6.48 2 12.5S6.47 23 12.5 23c2.69 0 5.09-.97 6.88-2.59l-2.84-2.84z"/></svg>', color: '#1DB954' },
+    spotify: { icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5.52 19.17c-.47.28-1.04.44-1.66.44-.72 0-1.3-.23-1.78-.66l-2.98-2.59c-1.25 1.03-2.76 1.65-4.45 1.65-3.87 0-7-3.13-7-7s3.13-7 7-7c2.05 0 3.88.88 5.14 2.22l2.81-2.81C17.5 2.93 15.14 2 12.5 2 6.47 2 2 6.48 2 12.5S6.47 23 12.5 23c2.69 0 5.09-.97 6.88-2.59l-2.84-2.84z"/></svg>', color: '#7C9A72' },
     instagram: { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>', color: '#E1306C' },
     twitter: { icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/></svg>', color: '#1DA1F2' },
     youtube: { icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>', color: '#FF0000' },
@@ -318,7 +318,7 @@ function renderListeningChart(metrics) {
 
   window.listeningChart = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets: [{ label: 'Dinlenme', data, borderColor: 'var(--green)', backgroundColor: 'rgba(29,185,84,.1)', fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }] },
+    data: { labels, datasets: [{ label: 'Dinlenme', data, borderColor: 'var(--green)', backgroundColor: 'rgba(124,154,114,.1)', fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
@@ -433,7 +433,7 @@ async function loadProfileBadges() {
           </div>
           <div class="badges-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:12px">
             ${items.map(b => `
-              <div class="badge-card ${b.earned ? 'earned' : 'locked'}" title="${escapeHtml(b.description)}" style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid ${b.earned ? 'rgba(29,185,84,0.3)' : 'rgba(255,255,255,0.08)'};border-radius:14px;position:relative;transition:all 0.2s ease">
+              <div class="badge-card ${b.earned ? 'earned' : 'locked'}" title="${escapeHtml(b.description)}" style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid ${b.earned ? 'rgba(124,154,114,0.3)' : 'rgba(255,255,255,0.08)'};border-radius:14px;position:relative;transition:all 0.2s ease">
                 <span class="badge-rarity rarity-${b.rarity}" style="font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);position:absolute;top:10px;right:10px">${b.rarity}</span>
                 <div class="badge-icon" style="font-size:28px;margin-bottom:8px">${b.icon}</div>
                 <div class="badge-name" style="font-size:14px;font-weight:600;color:#fff;margin-bottom:4px">${escapeHtml(b.name)}</div>

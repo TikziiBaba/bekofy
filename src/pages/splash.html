@@ -6,7 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bekofy - Yükleniyor...</title>
   <link rel="stylesheet" href="../css/splash.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/mobile.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Inter:wght@300;400;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="../js/android-bridge.js"></script>
 </head>
 
 <body>
@@ -25,8 +27,8 @@
           fill="none" />
         <defs>
           <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
-            <stop offset="0%" stop-color="#1DB954" />
-            <stop offset="100%" stop-color="#1ed760" />
+            <stop offset="0%" stop-color="#7C9A72" />
+            <stop offset="100%" stop-color="#9AB88F" />
           </linearGradient>
         </defs>
       </svg>
@@ -45,7 +47,7 @@
 
       if (isAdmin) {
         el.textContent = "Yönetici Ayrıcalıklarıyla Başlatıldı";
-        el.style.color = "#ff4d4d"; // Orijinal yeşil/beyaz dışı dikkat çekici bir renk
+        el.style.color = "#ff4d4d";
         el.style.fontWeight = "bold";
       } else {
         const taglines = [
@@ -72,6 +74,20 @@
         ];
         el.textContent = taglines[Math.floor(Math.random() * taglines.length)];
       }
+
+      // Auto redirect to auth/app page after splash animation
+      setTimeout(() => {
+        try {
+          const savedUserId = localStorage.getItem('bekofy_current_user_id');
+          if (savedUserId) {
+            window.location.href = 'app.html';
+          } else {
+            window.location.href = 'auth.html';
+          }
+        } catch (e) {
+          window.location.href = 'auth.html';
+        }
+      }, 1800);
     </script>
 
     <!-- Loading Bar -->

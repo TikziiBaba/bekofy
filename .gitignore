@@ -35,6 +35,11 @@ scratch/
 # Android backup (old/unused)
 android_capacitor_backup/
 
+# Android (local SDK path, Gradle cache, web assets copied from src/ at build time)
+android/local.properties
+android/.gradle/
+android/app/src/main/assets/
+
 # Legacy dev repos
 bekirr-dev-repo/
 
