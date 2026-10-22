@@ -9,21 +9,17 @@ export interface Rgba {
   a?: number;
 }
 
-export interface DynamicTheme {
+export interface Ambient {
   mode: Mode;
   seed: string;
-  color: {
-    accent: { default: string; on: string; text: string };
-    focus: string;
-    ambient: { 1: string; 2: string; 3: string };
-  };
+  color: { ambient: { 1: string; 2: string; 3: string } };
   cssVars: Record<string, string>;
 }
 
 export declare const TEXT_MIN: number;
 export declare const UI_MIN: number;
 
-export declare function deriveDynamicTheme(seed: string, mode?: Mode): DynamicTheme;
+export declare function deriveAmbient(seed: string, mode?: Mode): Ambient;
 export declare function seedFromPixels(rgba: ArrayLike<number>, step?: number): string;
 
 export declare function contrast(fg: string | Rgba, bg: string | Rgba): number;

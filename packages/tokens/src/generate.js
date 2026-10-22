@@ -130,9 +130,10 @@ export function generate() {
   const css = [
     `/* ${HEADER} */\n`,
     block(':root', baseLines),
-    block(':root,\n:root[data-theme="light"]', themeLines.light),
-    block(':root[data-theme="dark"]', themeLines.dark),
-    `@media (prefers-color-scheme: dark) {\n${indent(block(':root:not([data-theme="light"])', themeLines.dark))}\n}\n`,
+    `/* Varsayılan tema siyah. Açık tema data-theme="light" ile, işletim sistemine uyma data-theme="system" ile. */\n`,
+    block(':root,\n:root[data-theme="dark"]', themeLines.dark),
+    block(':root[data-theme="light"]', themeLines.light),
+    `@media (prefers-color-scheme: light) {\n${indent(block(':root[data-theme="system"]', themeLines.light))}\n}\n`,
     `/* Saydamlık azaltılmışsa cam düz yüzeye döner. :root:root:root, tema seçicilerinin önüne geçmek için. */\n`,
     `@media (prefers-reduced-transparency: reduce) {\n${indent(block(':root:root:root', glassFallback))}\n}\n`,
   ].join('\n');

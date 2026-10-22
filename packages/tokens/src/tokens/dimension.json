@@ -66,8 +66,14 @@
       "xl": { "$value": "232px" },
       "2xl": { "$value": "360px" }
     },
+    "border": {
+      "hairline": { "$value": "1px" },
+      "strong": { "$value": "2px" }
+    },
     "layout": {
       "sidebar": { "$value": "272px" },
+      "rail": { "$value": "72px", "$description": "Tablet genişliğinde daraltılmış kenar çubuğu." },
+      "panel": { "$value": "320px", "$description": "Masaüstünde sağdaki kuyruk / arkadaş paneli." },
       "player": { "$value": "88px" },
       "miniPlayer": { "$value": "64px" },
       "tabBar": { "$value": "64px" },

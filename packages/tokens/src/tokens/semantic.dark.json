@@ -28,11 +28,12 @@
       "pressed": { "$value": "alpha({color.neutral.0}, 0.12)" }
     },
     "accent": {
-      "default": { "$value": "{color.teal.400}" },
+      "default": { "$value": "{color.mint.400}" },
       "on": { "$value": "{color.neutral.950}" },
-      "text": { "$value": "{color.teal.300}" }
+      "text": { "$value": "{color.mint.300}" }
     },
-    "focus": { "$value": "{color.teal.300}" },
+    "focus": { "$value": "{color.mint.300}" },
+    "logo": { "$value": "{color.mint.400}" },
     "destructive": {
       "default": { "$value": "{color.red.600}" },
       "on": { "$value": "{color.neutral.0}" }
@@ -49,14 +50,14 @@
         "border": { "$value": "{color.amber.800}" }
       },
       "success": {
-        "text": { "$value": "{color.green.300}" },
-        "bg": { "$value": "{color.green.950}" },
-        "border": { "$value": "{color.green.800}" }
+        "text": { "$value": "{color.mint.300}" },
+        "bg": { "$value": "{color.mint.950}" },
+        "border": { "$value": "{color.mint.800}" }
       },
       "info": {
-        "text": { "$value": "{color.teal.300}" },
-        "bg": { "$value": "{color.teal.950}" },
-        "border": { "$value": "{color.teal.800}" }
+        "text": { "$value": "{color.blue.300}" },
+        "bg": { "$value": "{color.blue.950}" },
+        "border": { "$value": "{color.blue.800}" }
       }
     },
     "glass": {
@@ -72,9 +73,9 @@
       "hairline": { "$value": "alpha({color.neutral.0}, 0.06)" }
     },
     "ambient": {
-      "1": { "$value": "oklch(0.27 0.05 202.4)" },
-      "2": { "$value": "oklch(0.2 0.035 217)" },
-      "3": { "$value": "oklch(0.165 0.02 187)" }
+      "1": { "$value": "oklch(0.26 0.05 157.2)" },
+      "2": { "$value": "oklch(0.19 0.03 172)" },
+      "3": { "$value": "oklch(0.155 0.015 142)" }
     },
     "scrim": { "$value": "alpha({color.neutral.1000}, 0.6)" },
     "shadow": { "$value": "alpha({color.neutral.1000}, 0.45)" }

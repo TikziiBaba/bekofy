@@ -1,44 +1,30 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { dark, light } from '../dist/tokens.js';
-import { composite, contrast, formatColor, fromOklch, parseColor, toOklch, withAlpha } from '../src/color.js';
-import { deriveDynamicTheme, seedFromPixels } from '../src/dynamic.js';
+import { composite, contrast, formatColor, fromOklch, parseColor, toOklch } from '../src/color.js';
+import { deriveAmbient, seedFromPixels } from '../src/dynamic.js';
 
-const WHITE = parseColor('#FFFFFF');
-const BLACK = parseColor('#000000');
-
-/** Türetilmiş temanın tüm çiftlerini denetler; geçmeyenleri döndürür. */
+/** Türetilmiş ortamın üstündeki metin, vurgu metni ve odak çiftlerini denetler; geçmeyenleri döndürür. */
 function audit(seed, mode) {
   const theme = mode === 'dark' ? dark : light;
-  const { color } = deriveDynamicTheme(seed, mode);
-  const { hover, pressed } = theme.opacity.state;
+  const { color } = deriveAmbient(seed, mode);
   const fails = [];
   const need = (label, fg, bg, min = 4.5) => {
     const ratio = contrast(fg, bg);
     if (ratio < min) fails.push(`${mode} ${seed} ${label}: ${ratio.toFixed(2)}`);
   };
-  for (const a of [0, hover, pressed]) need(`accent.on/fill@${a}`, color.accent.on, composite(withAlpha(color.accent.on, a), color.accent.default));
-  const ambients = [color.ambient[1], color.ambient[2], color.ambient[3]];
-  const backdrops = [
-    theme.color.surface.page,
-    theme.color.surface.raised,
-    composite(theme.color.glass.chrome.bg, WHITE),
-    composite(theme.color.glass.chrome.bg, BLACK),
-    ...ambients,
-  ];
-  backdrops.forEach((bg, i) => need(`accent.text/zemin${i}`, color.accent.text, bg));
-  backdrops.forEach((bg, i) => need(`focus/zemin${i}`, color.focus, bg, 3));
-  for (const amb of ambients) {
+  for (const amb of [color.ambient[1], color.ambient[2], color.ambient[3]]) {
     const panel = composite(theme.color.glass.panel.bg, amb);
-    for (const fg of [theme.color.text.primary, theme.color.text.secondary]) {
-      need('metin/ortam', fg, amb);
-      need('metin/cam panel', fg, panel);
+    for (const [name, fg] of Object.entries({ primary: theme.color.text.primary, secondary: theme.color.text.secondary, accent: theme.color.accent.text })) {
+      need(`${name}/ortam`, fg, amb);
+      need(`${name}/cam panel`, fg, panel);
     }
+    need('focus/ortam', theme.color.focus, amb, 3);
   }
   return fails;
 }
 
-test('dinamik tema her ton, doygunluk ve açıklıkta kontrastı korur (2.592 tohum)', () => {
+test('ortam zemini her ton, doygunluk ve açıklıkta okunabilirliği korur (2.592 tohum)', () => {
   const fails = [];
   for (const mode of ['light', 'dark']) {
     for (let h = 0; h < 360; h += 5) {
@@ -56,12 +42,12 @@ test('uç tohumlar: siyah, beyaz, gri ve doygun RGB', () => {
   assert.deepEqual(fails, []);
 });
 
-test('gri kapak marka tonuna döner, renkli kapak kendi tonunu korur', () => {
-  const brandHue = toOklch(parseColor(light.color.accent.default)).h;
-  const grey = toOklch(parseColor(deriveDynamicTheme('#7A7A7A', 'dark').color.accent.default));
-  assert.ok(Math.abs(grey.h - brandHue) < 3, `gri kapak tonu ${grey.h}`);
-  const red = toOklch(parseColor(deriveDynamicTheme('#D0312D', 'dark').color.accent.default));
-  assert.ok(red.h < 40 || red.h > 340, `kırmızı kapak tonu ${red.h}`);
+test('gri kapak markanın yeşil ortamına döner, renkli kapak kendi tonunu verir', () => {
+  const brandHue = toOklch(parseColor(dark.color.accent.default)).h;
+  const grey = toOklch(parseColor(deriveAmbient('#7A7A7A', 'dark').color.ambient[1]));
+  assert.ok(Math.abs(grey.h - brandHue) < 6, `gri kapak ortam tonu ${grey.h}`);
+  const red = toOklch(parseColor(deriveAmbient('#D0312D', 'dark').color.ambient[1]));
+  assert.ok(red.h < 45 || red.h > 340, `kırmızı kapak ortam tonu ${red.h}`);
 });
 
 test('seedFromPixels: baskın renkli tonu seçer, boş görselde markaya döner', () => {
@@ -72,5 +58,5 @@ test('seedFromPixels: baskın renkli tonu seçer, boş görselde markaya döner'
   }
   const seed = toOklch(parseColor(seedFromPixels(px, 1)));
   assert.ok(seed.h < 40 || seed.h > 340, `seçilen ton ${seed.h}`);
-  assert.equal(seedFromPixels(new Uint8ClampedArray(16), 1), light.color.accent.default);
+  assert.equal(seedFromPixels(new Uint8ClampedArray(16), 1), dark.color.accent.default);
 });

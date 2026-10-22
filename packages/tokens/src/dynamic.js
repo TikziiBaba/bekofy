@@ -1,101 +1,59 @@
-// Çalan şarkının kapağından tema türetir: vurgu dolgusu, vurgu metni, odak halkası ve ortam zemini.
-// Her ton ve doygunlukta kontrast çiftleri garanti edilir: değerler hedefe ulaşana kadar açıklık kaydırılır.
+// Çalan şarkının kapağından ortam zemini türetir. Vurgu rengi markadır (nane yeşili) ve değişmez;
+// kapak yalnızca arka plandaki ışığı renklendirir. Ortam renklerinin açıklığı, üstündeki metin
+// ve vurgu metni hedef kontrasta ulaşana kadar kaydırılır.
 
 import { dark, light } from '../dist/tokens.js';
-import { composite, contrast, formatColor, fromOklch, parseColor, toOklch, withAlpha } from './color.js';
+import { composite, contrast, formatColor, fromOklch, parseColor, toOklch } from './color.js';
 import { cssVarName } from './names.js';
 
 export const TEXT_MIN = 4.5;
 export const UI_MIN = 3;
 
-const BRAND = toOklch(parseColor(light.color.accent.default));
+const BRAND = toOklch(parseColor(dark.color.accent.default));
 const NEUTRAL_CHROMA = 0.04;
 const STEP = 0.005;
-const WHITE = parseColor('#FFFFFF');
-const BLACK = parseColor('#000000');
-const INK = parseColor(light.color.text.primary);
 const AMBIENT = {
-  dark: [[0.27, 0.07, 0], [0.2, 0.05, 15], [0.165, 0.03, -15]],
+  dark: [[0.26, 0.07, 0], [0.19, 0.04, 15], [0.155, 0.02, -15]],
   light: [[0.93, 0.045, 0], [0.9, 0.035, 15], [0.965, 0.02, -15]],
 };
 
 /** 8 bit'e yuvarlanmış hali: kontrol, ekrana çıkacak gerçek değer üzerinde yapılır. */
 const quantize = (c) => parseColor(formatColor(c));
 
-/** Vurgu metninin üstünde durabileceği en kötü zeminler. */
-function worstBackdrops(theme) {
-  const chrome = theme.color.glass.chrome.bg;
-  return [
-    parseColor(theme.color.surface.page),
-    parseColor(theme.color.surface.raised),
-    composite(chrome, WHITE),
-    composite(chrome, BLACK),
-  ];
-}
-
-/** Dolgu üstündeki koyu yazının dinlenme, hover ve basılı durumlarındaki en düşük kontrastı. */
-function fillContrast(fill, theme) {
-  const { hover, pressed } = theme.opacity.state;
-  return Math.min(
-    contrast(INK, fill),
-    contrast(INK, composite(withAlpha(INK, hover), fill)),
-    contrast(INK, composite(withAlpha(INK, pressed), fill)),
-  );
-}
-
-/** l açıklığından başlayıp dir yönünde ilerleyerek ok(c) sağlanana kadar renk arar. */
-function search(l, chroma, hue, dir, ok) {
-  let color = quantize(fromOklch(l, chroma, hue));
-  while (!ok(color) && l > 0 && l < 1) {
-    l += dir * STEP;
-    color = quantize(fromOklch(l, chroma, hue));
-  }
-  return color;
-}
-
 /**
- * Kapaktan türetilen tema. seed: kapağın baskın rengi (hex). mode: 'light' | 'dark'.
- * Dönen cssVars doğrudan document.documentElement.style üzerine yazılabilir.
+ * Kapaktan ortam zemini. seed: kapağın baskın rengi (hex). mode: 'light' | 'dark'.
+ * Gri kapaklarda markanın yeşil ortamına döner. cssVars doğrudan document.documentElement.style'a yazılabilir.
  */
-export function deriveDynamicTheme(seed, mode = 'dark') {
-  const isDark = mode === 'dark';
-  const theme = isDark ? dark : light;
+export function deriveAmbient(seed, mode = 'dark') {
+  const theme = mode === 'dark' ? dark : light;
   const src = toOklch(parseColor(seed));
   const neutral = src.c < NEUTRAL_CHROMA;
   const hue = neutral ? BRAND.h : src.h;
-  const chroma = neutral ? BRAND.c : Math.min(Math.max(src.c, 0.09), 0.16);
-  const textPrimary = parseColor(theme.color.text.primary);
-  const textSecondary = parseColor(theme.color.text.secondary);
-  const away = isDark ? -1 : 1;
+  const away = mode === 'dark' ? -1 : 1;
+  const fg = [theme.color.text.primary, theme.color.text.secondary, theme.color.accent.text].map(parseColor);
+  const readable = (bg) =>
+    fg.every((c) => contrast(c, bg) >= TEXT_MIN && contrast(c, composite(theme.color.glass.panel.bg, bg)) >= TEXT_MIN);
 
-  const ambient = AMBIENT[mode].map(([l, maxC, dh]) =>
-    search(l, Math.min(src.c, maxC), hue + dh, away, (bg) =>
-      contrast(textPrimary, bg) >= TEXT_MIN && contrast(textSecondary, bg) >= TEXT_MIN,
-    ),
-  );
+  const ambient = AMBIENT[mode].map(([l, maxC, dh]) => {
+    const chroma = neutral ? maxC : Math.min(src.c, maxC);
+    let color = quantize(fromOklch(l, chroma, hue + dh));
+    while (!readable(color) && l > 0 && l < 1) {
+      l += away * STEP;
+      color = quantize(fromOklch(l, chroma, hue + dh));
+    }
+    return formatColor(color);
+  });
 
-  const fill = search(isDark ? 0.72 : 0.74, chroma, hue, 1, (c) => fillContrast(c, theme) >= TEXT_MIN);
-
-  const backdrops = [...worstBackdrops(theme), ...ambient];
-  const text = search(isDark ? 0.8 : 0.45, Math.min(chroma, 0.14), hue, -away, (c) =>
-    backdrops.every((bg) => contrast(c, bg) >= TEXT_MIN),
-  );
-
-  const color = {
-    accent: { default: formatColor(fill), on: formatColor(INK), text: formatColor(text) },
-    focus: formatColor(text),
-    ambient: { 1: formatColor(ambient[0]), 2: formatColor(ambient[1]), 3: formatColor(ambient[2]) },
+  return {
+    mode,
+    seed,
+    color: { ambient: { 1: ambient[0], 2: ambient[1], 3: ambient[2] } },
+    cssVars: {
+      [cssVarName('color.ambient.1')]: ambient[0],
+      [cssVarName('color.ambient.2')]: ambient[1],
+      [cssVarName('color.ambient.3')]: ambient[2],
+    },
   };
-  const cssVars = {
-    [cssVarName('color.accent.default')]: color.accent.default,
-    [cssVarName('color.accent.on')]: color.accent.on,
-    [cssVarName('color.accent.text')]: color.accent.text,
-    [cssVarName('color.focus')]: color.focus,
-    [cssVarName('color.ambient.1')]: color.ambient[1],
-    [cssVarName('color.ambient.2')]: color.ambient[2],
-    [cssVarName('color.ambient.3')]: color.ambient[3],
-  };
-  return { mode, seed, color, cssVars };
 }
 
 /**
@@ -120,6 +78,6 @@ export function seedFromPixels(rgba, step = 4) {
   }
   const best = buckets.reduce((a, b) => (b.score > a.score ? b : a));
   const pick = best.n ? best : total;
-  if (!pick.n) return light.color.accent.default;
+  if (!pick.n) return dark.color.accent.default;
   return formatColor({ r: pick.r / pick.n, g: pick.g / pick.n, b: pick.b / pick.n });
 }

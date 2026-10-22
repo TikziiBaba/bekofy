@@ -28,12 +28,13 @@
       "pressed": { "$value": "alpha({color.neutral.950}, 0.1)" }
     },
     "accent": {
-      "$description": "Varsayılan marka vurgusu. Çalan şarkının kapağı varsa çalışma anında deriveDynamicTheme() bunları ezer.",
-      "default": { "$value": "{color.teal.400}" },
+      "$description": "Marka vurgusu (nane yeşili). Kapaktan bağımsızdır; her ekranda aynı kalır.",
+      "default": { "$value": "{color.mint.400}" },
       "on": { "$value": "{color.neutral.950}" },
-      "text": { "$value": "{color.teal.700}" }
+      "text": { "$value": "{color.mint.700}" }
     },
-    "focus": { "$value": "{color.teal.600}" },
+    "focus": { "$value": "{color.mint.600}" },
+    "logo": { "$value": "{color.mint.700}", "$description": "Logo işaretinin rengi." },
     "destructive": {
       "default": { "$value": "{color.red.600}" },
       "on": { "$value": "{color.neutral.0}" }
@@ -50,14 +51,14 @@
         "border": { "$value": "{color.amber.300}" }
       },
       "success": {
-        "text": { "$value": "{color.green.700}" },
-        "bg": { "$value": "{color.green.50}" },
-        "border": { "$value": "{color.green.300}" }
+        "text": { "$value": "{color.mint.700}" },
+        "bg": { "$value": "{color.mint.50}" },
+        "border": { "$value": "{color.mint.300}" }
       },
       "info": {
-        "text": { "$value": "{color.teal.700}" },
-        "bg": { "$value": "{color.teal.50}" },
-        "border": { "$value": "{color.teal.300}" }
+        "text": { "$value": "{color.blue.700}" },
+        "bg": { "$value": "{color.blue.50}" },
+        "border": { "$value": "{color.blue.300}" }
       }
     },
     "glass": {
@@ -75,10 +76,10 @@
       "hairline": { "$value": "alpha({color.neutral.950}, 0.08)" }
     },
     "ambient": {
-      "$description": "Kapak yokken kullanılan ortam zemini (degrade durakları).",
-      "1": { "$value": "oklch(0.93 0.04 202.4)" },
-      "2": { "$value": "oklch(0.9 0.03 217)" },
-      "3": { "$value": "oklch(0.965 0.015 187)" }
+      "$description": "Kapak yokken ortam zemini (degrade durakları). Kapak varsa deriveAmbient() bunları ezer.",
+      "1": { "$value": "oklch(0.93 0.04 157.2)" },
+      "2": { "$value": "oklch(0.9 0.03 172)" },
+      "3": { "$value": "oklch(0.965 0.015 142)" }
     },
     "scrim": { "$value": "alpha({color.neutral.1000}, 0.4)" },
     "shadow": { "$value": "alpha({color.neutral.1000}, 0.12)" }
