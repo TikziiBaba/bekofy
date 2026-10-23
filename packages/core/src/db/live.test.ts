@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { createBekofyClient, memoryStorage } from '../client';
+import { artistByName, artistSongs, artistsForSongs } from './artists';
 import { badgeDefinitions } from './badges';
 import { DataError } from './errors';
 import { findJamByCode } from './jam';
@@ -49,5 +50,40 @@ describe.skipIf(!live)('canlı okuma (anon)', () => {
   it('kayıt sırasında kullanıcı adı denetimi oturumsuz çalışır', async () => {
     expect(await checkUsername(sb, 'x')).toBe('format');
     expect(await checkUsername(sb, `deneme_${Date.now().toString(36)}`)).toBeNull();
+  });
+
+  it('sanatçı sayfası: konuk olunan şarkı da listelenir, sanatçılar sırasıyla gelir', async () => {
+    const uzi = await artistByName(sb, 'uzİ');
+    expect(uzi?.name).toBe('UZİ');
+    const songs = await artistSongs(sb, uzi!.id);
+    const duet = songs.find((s) => s.artist.includes(','));
+    expect(duet).toBeDefined();
+    expect((await artistsForSongs(sb, [duet!.id])).get(duet!.id)?.map((a) => a.name)).toEqual(['Motive', 'UZİ']);
+  });
+});
+
+/** Oturumsuz istemcinin yazma girişimleri RLS tarafından reddedilmeli; hiçbir satır yazılmaz. */
+describe.skipIf(!live)('canlı RLS (anon yazamaz)', () => {
+  const ghost = '00000000-0000-4000-8000-000000000000';
+  const rejected = async (run: PromiseLike<{ error: { code?: string } | null }>) => (await run).error?.code;
+
+  it.each([
+    ['listening_history', () => sb.from('listening_history').insert({ user_id: ghost, song_id: ghost, platform: 'web' })],
+    ['follows', () => sb.from('follows').insert({ follower_id: ghost, following_id: ghost })],
+    ['artist_follows', () => sb.from('artist_follows').insert({ user_id: ghost, artist_id: ghost })],
+    ['artist_requests', () => sb.from('artist_requests').insert({ user_id: ghost, artist_name: 'x', links: [] })],
+    ['user_access_logs', () => sb.from('user_access_logs').insert({ user_id: ghost, platform: 'web' })],
+  ])('%s: ekleme reddedilir', async (_name, run) => {
+    expect(await rejected(run())).toBe('42501');
+  });
+
+  it('başvuru onaylama fonksiyonu anon için kapalı', async () => {
+    const res = await sb.rpc('review_artist_request', { p_request_id: ghost, p_approve: true });
+    expect(res.error).not.toBeNull();
+  });
+
+  it('giriş kayıtları ve başkalarının geçmişi anon için görünmez', async () => {
+    expect((await sb.from('user_access_logs').select('id').limit(1)).data ?? []).toEqual([]);
+    expect((await sb.from('listening_history').select('id').limit(1)).data ?? []).toEqual([]);
   });
 });

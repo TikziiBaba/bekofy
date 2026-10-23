@@ -48,27 +48,120 @@ export type Database = {
           },
         ];
       };
+      artist_follows: {
+        Row: {
+          user_id: string;
+          artist_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          artist_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          artist_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "artist_follows_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "artist_follows_artist_id_fkey";
+            columns: ["artist_id"];
+            isOneToOne: false;
+            referencedRelation: "artists";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      artist_requests: {
+        Row: {
+          id: string;
+          user_id: string;
+          artist_name: string;
+          message: string | null;
+          links: (string)[];
+          status: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          artist_name: string;
+          message?: string | null;
+          links: (string)[];
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          artist_name?: string;
+          message?: string | null;
+          links?: (string)[];
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "artist_requests_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "artist_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       artists: {
         Row: {
           id: string;
           name: string;
           avatar_url: string | null;
           created_at: string;
+          profile_id: string | null;
         };
         Insert: {
           id?: string;
           name: string;
           avatar_url?: string | null;
           created_at?: string;
+          profile_id?: string | null;
         };
         Update: {
           id?: string;
           name?: string;
           avatar_url?: string | null;
           created_at?: string;
+          profile_id?: string | null;
         };
         Relationships: [
-
+          {
+            foreignKeyName: "artists_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
         ];
       };
       badge_definitions: {
@@ -115,7 +208,7 @@ export type Database = {
           created_at: string;
         };
         Insert: {
-          id: number;
+          id?: number;
           created_at?: string;
         };
         Update: {
@@ -326,6 +419,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "liked_songs_song_id_fkey";
+            columns: ["song_id"];
+            isOneToOne: false;
+            referencedRelation: "songs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      listening_history: {
+        Row: {
+          id: number;
+          user_id: string;
+          song_id: string;
+          played_at: string;
+          seconds_played: number;
+          context_id: string | null;
+          platform: string;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          song_id: string;
+          played_at?: string;
+          seconds_played?: number;
+          context_id?: string | null;
+          platform: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          song_id?: string;
+          played_at?: string;
+          seconds_played?: number;
+          context_id?: string | null;
+          platform?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "listening_history_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "listening_history_song_id_fkey";
             columns: ["song_id"];
             isOneToOne: false;
             referencedRelation: "songs";
@@ -569,6 +707,39 @@ export type Database = {
 
         ];
       };
+      song_artists: {
+        Row: {
+          song_id: string;
+          artist_id: string;
+          position: number;
+        };
+        Insert: {
+          song_id: string;
+          artist_id: string;
+          position?: number;
+        };
+        Update: {
+          song_id?: string;
+          artist_id?: string;
+          position?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "song_artists_song_id_fkey";
+            columns: ["song_id"];
+            isOneToOne: false;
+            referencedRelation: "songs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "song_artists_artist_id_fkey";
+            columns: ["artist_id"];
+            isOneToOne: false;
+            referencedRelation: "artists";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       songs: {
         Row: {
           id: string;
@@ -616,6 +787,41 @@ export type Database = {
 
         ];
       };
+      user_access_logs: {
+        Row: {
+          id: number;
+          user_id: string;
+          platform: string;
+          app_version: string | null;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          platform: string;
+          app_version?: string | null;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          platform?: string;
+          app_version?: string | null;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_access_logs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_badges: {
         Row: {
           id: string;
@@ -657,7 +863,11 @@ export type Database = {
       };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      is_admin: { Args: Record<PropertyKey, never>; Returns: unknown };
+      review_artist_request: { Args: { p_approve: boolean; p_request_id: string }; Returns: unknown };
+      update_user_badge_progress: { Args: { p_user_id: string }; Returns: unknown };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

@@ -55,7 +55,10 @@ const tables = Object.keys(defs).sort().map((table) => {
   const row = [], insert = [], update = [], rels = [];
   for (const [col, p] of cols) {
     const t = tsOf(p);
-    const hasDefault = p.default !== undefined;
+    // OpenAPI "generated ... as identity" sütunlarını işaretlemez: varsayılanı görünmeyen tamsayı birincil anahtar
+    // veritabanınca üretilir sayılır (eklerken verilmez).
+    const identity = p.type === 'integer' && p.default === undefined && (p.description ?? '').includes('<pk/>');
+    const hasDefault = p.default !== undefined || identity;
     const notNull = required.has(col) || hasDefault;
     row.push(`          ${prop(col)}: ${t}${notNull ? '' : ' | null'};`);
     insert.push(`          ${prop(col)}${required.has(col) && !hasDefault ? '' : '?'}: ${t}${notNull ? '' : ' | null'};`);
@@ -81,6 +84,16 @@ ${rels.join('\n')}
       };`;
 });
 
+// RPC fonksiyonları: parametreler OpenAPI'den gelir; dönüş tipini OpenAPI vermediği için unknown.
+const functions = Object.keys(spec.paths ?? {}).filter((p) => p.startsWith('/rpc/')).sort().map((p) => {
+  const name = p.slice('/rpc/'.length);
+  const op = spec.paths[p].post ?? spec.paths[p].get;
+  const schema = (op?.parameters ?? []).find((x) => x.in === 'body')?.schema ?? {};
+  const required = new Set(schema.required ?? []);
+  const args = Object.entries(schema.properties ?? {}).map(([arg, s]) => `${prop(arg)}${required.has(arg) ? '' : '?'}: ${tsOf(s)}`);
+  return `      ${prop(name)}: { Args: ${args.length ? `{ ${args.join('; ')} }` : 'Record<PropertyKey, never>'}; Returns: unknown };`;
+});
+
 const out = `// Otomatik üretildi: npm run db:types -w @bekofy/core (kaynak: canlı Supabase şeması). Elle düzenleme.
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -91,7 +104,9 @@ export type Database = {
 ${tables.join('\n')}
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+${functions.join('\n')}
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
@@ -102,4 +117,4 @@ export type TablesInsert<T extends keyof Database['public']['Tables']> = Databas
 export type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update'];
 `;
 writeFileSync(new URL('../src/db/database.types.ts', import.meta.url), out);
-console.log(`database.types.ts: ${tables.length} tablo yazıldı.`);
+console.log(`database.types.ts: ${tables.length} tablo, ${functions.length} fonksiyon yazıldı.`);

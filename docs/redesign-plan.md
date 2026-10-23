@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0 ve 1 tamamlandı, Faz 2 büyük ölçüde tamamlandı (dal: `redesign`); migration uygulanmayı bekliyor
+Tarih: 2026-10-22 · Durum: Faz 0, 1 ve 2 tamamlandı (dal: `redesign`); eski tabloların RLS incelemesi bekliyor, sırada Faz 3
 
 ## Kararlar
 
@@ -96,7 +96,8 @@ Durum (2026-10-23):
 - Canlı şemada 19 tablo var. Eski kodun sorguladığı `user_access_logs`, `listening_history`, `listening_sessions`, `premium_requests`, `upload_requests`, `artist_requests`, `playlist_follows`, `albums`, `user_likes` tabloları yok; `playlists.song_ids` sütunu yok. Bu özellikler eski uygulamada sessizce hata veriyordu.
 - Veri modeli kararları: tek yönlü takip (`follows`; `friendships`'teki kayıtlar taşınır, eski uygulama kalkana kadar tablo silinmez), şarkılar sanatçılara `song_artists` bağ tablosuyla bağlanır (bir şarkının birden çok sanatçısı olabilir), sanatçı takibi `artist_follows`, yeni tablolar `listening_history`, `artist_requests` (onay `review_artist_request` fonksiyonuyla tek işlemde), `user_access_logs` (bilinçli olarak IP ve konum yok). Premium talebi tablosu eklenmedi; premium Faz 7'de PayTR ile gelir.
 - Premium iki yerde tutuluyor (`profiles.role = 'premium'` ve `profiles.is_premium`); şimdilik `isPremium()` ikisine de bakar, Faz 7'de tek alana indirilir.
-- Bekleyen: `supabase/migrations/20261023000000_redesign_core.sql` Supabase SQL editöründe uygulanacak (geri alma: `supabase/rollbacks/`), RLS denetimi `supabase/checks/rls_audit.sql` çalıştırılıp çıktısı incelenecek. Ardından tipler yeniden üretilip yeni tablolar için sorgular eklenecek.
+- Migration uygulandı ve doğrulandı: `friendships`'teki 5 kaydın 4'ü `follows`'a taşındı (atlanan kayıt bir kullanıcının kendini takibiydi, bilinçli dışarıda), `song_artists` 13 bağ (12 şarkının hepsi bağlı), yeni tablolar için sorgu modülleri eklendi (artists, history, artist-requests, access-logs). Canlı testler oturumsuz istemcinin yeni tablolara yazamadığını ve onay fonksiyonunu çağıramadığını doğruluyor. Birim testleri 85, canlı testler 14.
+- Bekleyen: `supabase/checks/rls_audit.sql` çıktısıyla mevcut (eski) tabloların ve depolama alanlarının RLS politikaları incelenecek.
 - Not: kökteki `.env` şablon halindeydi; R2 anahtarları boş. Faz 3'teki yerel içe aktarma sunucusu için doldurulması gerekiyor.
 
 ### Faz 3: YouTube içe aktarma (yerel sunucu)
