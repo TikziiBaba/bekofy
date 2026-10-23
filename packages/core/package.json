@@ -12,7 +12,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
-    "db:types": "node scripts/db-types.mjs"
+    "db:types": "node scripts/db-types.mjs",
+    "test:rls": "node scripts/rls-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.2"

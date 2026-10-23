@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0, 1 ve 2 tamamlandı (dal: `redesign`); güvenlik migration'ı uygulanmayı bekliyor, sırada Faz 3
+Tarih: 2026-10-22 · Durum: Faz 0, 1 ve 2 tamamlandı ve doğrulandı (dal: `redesign`); sırada Faz 3
 
 ## Kararlar
 
@@ -98,7 +98,8 @@ Durum (2026-10-23):
 - Premium iki yerde tutuluyor (`profiles.role = 'premium'` ve `profiles.is_premium`); şimdilik `isPremium()` ikisine de bakar, Faz 7'de tek alana indirilir.
 - Migration uygulandı ve doğrulandı: `friendships`'teki 5 kaydın 4'ü `follows`'a taşındı (atlanan kayıt bir kullanıcının kendini takibiydi, bilinçli dışarıda), `song_artists` 13 bağ (12 şarkının hepsi bağlı), yeni tablolar için sorgu modülleri eklendi (artists, history, artist-requests, access-logs). Canlı testler oturumsuz istemcinin yeni tablolara yazamadığını ve onay fonksiyonunu çağıramadığını doğruluyor. Birim testleri 85, canlı testler 14.
 - RLS denetimi yapıldı (2026-10-23). Kritik bulgular: kullanıcı kendi rolünü `admin` yapabiliyordu; Jam tablolarında RLS kapalıydı (canlı testle doğrulandı). Yüksek: `playlist_songs` politikasındaki koşul hatası herhangi bir düzenleyiciye tüm listeleri açıyordu; `avatars` alanında başkasının dosyasının üstüne yazılabiliyordu. Ayrıca gizli listeler herkese açıktı, sanatçı yüklemeleri onaysız yayına giriyordu, `update_user_badge_progress` anon'a açıktı (gövdesi de var olmayan `play_count` sütununu okuduğu için hiç çalışmıyor), `media` depolama alanı hiç yok (eski kodun bu alana yaptığı yüklemeler çalışmıyor).
-- Bekleyen: `supabase/migrations/20261023010000_security_hardening.sql` uygulanacak (geri alma: `supabase/rollbacks/`). Ardından `BEKOFY_LIVE=1 npm test -w @bekofy/core` ile Jam RLS'si ve rozet izni doğrulanır; `supabase/checks/rls_audit.sql` tekrar çalıştırılır.
+- Güvenlik migration'ı (`20261023010000_security_hardening.sql`) uygulandı ve doğrulandı: anon canlı testleri 17/17; oturumlu güvenlik testi `npm run test:rls -w @bekofy/core` 27/27 (iki geçici `@bekofy.test` hesabıyla: kendini admin/premium yapamama, askısını kaldıramama, başkasının listesine/avatarına yazamama, sanatçı yüklemesinin `pending` girmesi, Jam ve takip kuralları; test hesapları ve verileri sonunda silinir, bağımsız kontrolle doğrulandı). Her yeni migration'dan sonra bu iki test tekrar çalıştırılır.
+- Not: Auth'ta 15 hesap, `profiles`'ta 6 satır var; profili olmayan 9 hesap ilk girişte `ensureProfile` ile tamamlanır.
 - Not: kökteki `.env` şablon halindeydi; R2 anahtarları boş. Faz 3'teki yerel içe aktarma sunucusu için doldurulması gerekiyor.
 
 ### Faz 3: YouTube içe aktarma (yerel sunucu)
