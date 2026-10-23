@@ -1,4 +1,4 @@
-// Görsel yükleme: profil fotoğrafı ve kapak (avatars), çalma listesi kapağı ve kapak görseli (media).
+// Görsel yükleme. Kullanıcı yalnızca avatars alanındaki kendi klasörüne (<kullanıcı-id>/...) yazabilir (RLS).
 
 import type { BekofyClient } from '../client';
 import { DataError } from './errors';
@@ -14,25 +14,26 @@ export function imageProblem(file: { type: string; size: number }): string | nul
   return null;
 }
 
-async function upload(sb: BekofyClient, bucket: 'avatars' | 'media', path: string, file: Blob): Promise<string> {
+async function upload(sb: BekofyClient, path: string, file: Blob): Promise<string> {
   const problem = imageProblem(file);
   if (problem) throw new DataError(problem);
-  const res = await sb.storage.from(bucket).upload(path, file, { contentType: file.type, upsert: true, cacheControl: '31536000' });
+  const res = await sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true, cacheControl: '31536000' });
   if (res.error) throw new DataError('Görsel yüklenemedi. Tekrar dene.', undefined, res.error);
-  return sb.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
 }
 
 /** Ad sonuna zaman eklenir: önbellekteki eski görsel gösterilmez. */
 const stamp = (type: string) => `${Date.now()}.${EXT[type] ?? 'jpg'}`;
 
 export function uploadAvatar(sb: BekofyClient, userId: string, file: Blob): Promise<string> {
-  return upload(sb, 'avatars', `${userId}/avatar-${stamp(file.type)}`, file);
+  return upload(sb, `${userId}/avatar-${stamp(file.type)}`, file);
 }
 
 export function uploadBanner(sb: BekofyClient, userId: string, file: Blob): Promise<string> {
-  return upload(sb, 'avatars', `${userId}/banner-${stamp(file.type)}`, file);
+  return upload(sb, `${userId}/banner-${stamp(file.type)}`, file);
 }
 
-export function uploadPlaylistCover(sb: BekofyClient, playlistId: string, file: Blob): Promise<string> {
-  return upload(sb, 'media', `playlists/${playlistId}-${stamp(file.type)}`, file);
+/** Liste sahibinin klasörüne yüklenir; listenin cover_url alanı ayrıca updatePlaylist ile yazılır. */
+export function uploadPlaylistCover(sb: BekofyClient, ownerId: string, playlistId: string, file: Blob): Promise<string> {
+  return upload(sb, `${ownerId}/playlist-${playlistId}-${stamp(file.type)}`, file);
 }

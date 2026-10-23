@@ -73,8 +73,16 @@ describe.skipIf(!live)('canlı RLS (anon yazamaz)', () => {
     ['artist_follows', () => sb.from('artist_follows').insert({ user_id: ghost, artist_id: ghost })],
     ['artist_requests', () => sb.from('artist_requests').insert({ user_id: ghost, artist_name: 'x', links: [] })],
     ['user_access_logs', () => sb.from('user_access_logs').insert({ user_id: ghost, platform: 'web' })],
+    // RLS kapalıyken bu iki ekleme yabancı anahtar hatası (23503) verirdi; 42501 RLS'nin açık olduğunu kanıtlar.
+    ['jam_sessions', () => sb.from('jam_sessions').insert({ code: 'ZZZZZZ', host_id: ghost })],
+    ['jam_participants', () => sb.from('jam_participants').insert({ session_id: ghost, user_id: ghost })],
   ])('%s: ekleme reddedilir', async (_name, run) => {
     expect(await rejected(run())).toBe('42501');
+  });
+
+  it('rozet ilerleme fonksiyonu anon için kapalı', async () => {
+    // İzin açıkken fonksiyon çalışıp kendi hatasını verir (42703); kapalıyken yetki hatası (42501).
+    expect((await sb.rpc('update_user_badge_progress', { p_user_id: ghost })).error?.code).toBe('42501');
   });
 
   it('başvuru onaylama fonksiyonu anon için kapalı', async () => {
