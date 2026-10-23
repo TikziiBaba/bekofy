@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0-3 tamamlandı; Faz 4 (site) ve Faz 5 (masaüstü) yapıldı ve doğrulandı, yayına alma adımları bekliyor (dal: `redesign`); sırada Faz 6
+Tarih: 2026-10-23 · Durum: Faz 0-3 tamamlandı; Faz 4 (site), Faz 5 (masaüstü) ve Faz 6 (mobil) yapıldı, yayına alma adımları bekliyor (dal: `redesign`); sırada Faz 7/8
 
 ## Kararlar
 
@@ -232,6 +232,46 @@ Durum (2026-10-23):
 - Eski `android/` WebView projesi, yeni uygulama çalıştıktan sonra silinir.
 
 Doğrulama: Android emülatörü ve gerçek cihazda elle test listesi; TalkBack etiketleri; koyu + açık.
+
+Kararlar (2026-10-23):
+- Paket adı `com.bekofy.app`; şimdilik yerel APK, EAS ve Play Store sonra.
+- Oynatıcı: expo-audio `AudioPlaylist` (prototiple seçildi): arka planda çalma, bildirim ve kilit ekranı denetimleri
+  (önceki/sonraki dahil) yerel listede; uygulama `trackChanged` olayıyla eşitlenir.
+- APK, GitHub'daki son sürüme (şimdilik v1.4.1, etiket `ota`) ek dosya olarak yüklenir; site Android düğmesini oradan
+  bağlar. Yeni "son sürüm" açılmaz, yoksa eski masaüstü uygulamalarının güncelleme denetimi ve Windows düğmesi bozulur.
+- Yayın anahtarı kalıcı: `%USERPROFILE%\.bekofy\bekofy-release.jks`, parolası kökteki `.env`'de
+  (`BEKOFY_ANDROID_*`). Anahtar kaybolursa kurulu uygulamalar güncellenemez; dosya ve parola yedeklenmeli.
+
+Durum: yapıldı.
+- Ekranlar:
+  - Giriş ve kayıt (e-posta, Google; Google dönüşü `bekofy://auth/callback`).
+  - Ana sayfa: devam et, hızlı erişim, arkadaşların ne dinliyor (canlı), son dinlenenler, yeni eklenenler, Jam ve yılın özeti.
+  - Arama, kitaplık (listeler, sanatçılar, indirilenler), beğenilenler, çalma listesi, albüm, sanatçı (takip),
+    profil (takip, rozetler), ayarlar (tema, kapak rengi, Premium ve hesap için site bağlantıları).
+  - Jam (başlat, koda katıl, canlı eşitleme), yılın özeti.
+- Şimdi çalıyor: alttan kayar, aşağı sürükleyince kapanır; kapakta yana kaydırma şarkı değiştirir; sözler ve sıra alt sayfada.
+- Hareket: süre ve eğriler token'lardan; arka plan ışığı kapaktan (masaüstüyle aynı `seedFromPixels` yolu, kapak
+  thumbhash'inden); mini oynatıcıda kaydırma; kaydırınca küçülen koleksiyon başlığı; beğenide kalp sıçraması; titreşim.
+  Sistemde "animasyonları kaldır" açıksa giriş animasyonları bağlanmaz, sürekli göstergeler durur.
+- Şarkı satırı: sağa çek sıradaki çal, sola çek listeye ekle (TalkBack'te özel eylem). Sıra ekranında sağa çek: hemen sıradaki.
+- Alt çubukta "Oluştur": çalma listesi, ortak liste, Jam, sırayı listeye kaydet.
+- Liste düzenleme: kapak fotoğrafı (galeriden, kare kırpma), ad, açıklama, gizlilik, birlikte düzenleyenler, sürükleyerek
+  sıralama, çıkarma, silme; kaydetmeden çıkarken uyarır.
+- İnternetsiz dinleme Premium'a özel (`Paths.document/offline-songs`).
+- Windows'ta yerel derleme 260 karakterlik yol sınırına takılıyordu: config plugin ile `CMAKE_OBJECT_PATH_MAX`.
+- Core: React Native'de oturum anahtarının ezilmesi düzeltildi; görsel yükleme ham bayt da kabul ediyor.
+- Doğrulama:
+  - Emülatörde elle (ekran görüntüsü ve dokunma): giriş, çalma, arka planda çalma, bildirimden sonraki/duraklat,
+    şimdi çalıyor açılış ve sürükleyerek kapanış, kapak rengi, alt sayfalar, koyu ve açık tema.
+  - Ortak düzenleyici ve kapak yükleme izinleri iki geçici hesapla veritabanında denendi.
+  - `node apps/mobile/scripts/e2e.mjs` yazıldı (geçici iki hesap, sonunda silinir) ama tam geçmedi: uiautomator, çalma
+    sırasında ekranı okuyamıyor. Bu yüzden yeni eklenen kaydırma, Oluştur ve düzenleme akışlarının testi koşulmadı.
+  - Tip denetimi temiz; renk eşleşmelerinin kontrastı iki temada ölçüldü.
+- Bekleyen (senden):
+  1. Telefonda eski Bekofy (WebView) uygulaması varsa önce kaldırılmalı: imza farklı, üzerine kurulmaz.
+  2. Supabase Redirect URLs'e `bekofy://auth/callback` (mobilde Google girişi için de gerekli).
+  3. Yayın anahtarını (`.bekofy` klasörü ve `.env`'deki parola) güvenli bir yere yedekle.
+- Sonra: eski `android/` WebView projesinin silinmesi Faz 8'e kaldı.
 
 ### Faz 7: PayTR (sonra)
 

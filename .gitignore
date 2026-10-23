@@ -60,3 +60,9 @@ bekirr-dev-repo/
 
 # Package lock (keep for reproducibility, but optional)
 # package-lock.json
+
+# Expo (apps/mobile): yerel projeler prebuild ile üretilir
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/.expo/
+apps/mobile/expo-env.d.ts

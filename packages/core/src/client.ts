@@ -42,7 +42,8 @@ export function createBekofyClient(options: ClientOptions = {}): BekofyClient {
   return createClient<Database>(url, anonKey, {
     auth: {
       storage: options.storage,
-      storageKey: options.storageKey,
+      // undefined açıkça verilirse Supabase'in varsayılan anahtarını ezer; yalnızca tanımlıysa geçir.
+      ...(options.storageKey ? { storageKey: options.storageKey } : {}),
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: options.detectSessionInUrl ?? false,
