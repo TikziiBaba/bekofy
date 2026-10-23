@@ -9,6 +9,7 @@
     "setup": "node scripts/setup.mjs",
     "update": "node scripts/setup.mjs --update",
     "test": "vitest run",
+    "test:e2e": "node scripts/e2e.mjs",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {

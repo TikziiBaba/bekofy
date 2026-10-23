@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0, 1 ve 2 tamamlandı ve doğrulandı (dal: `redesign`); sırada Faz 3
+Tarih: 2026-10-22 · Durum: Faz 0, 1, 2 ve 3 tamamlandı ve doğrulandı (dal: `redesign`); sırada Faz 4
 
 ## Kararlar
 
@@ -100,7 +100,7 @@ Durum (2026-10-23):
 - RLS denetimi yapıldı (2026-10-23). Kritik bulgular: kullanıcı kendi rolünü `admin` yapabiliyordu; Jam tablolarında RLS kapalıydı (canlı testle doğrulandı). Yüksek: `playlist_songs` politikasındaki koşul hatası herhangi bir düzenleyiciye tüm listeleri açıyordu; `avatars` alanında başkasının dosyasının üstüne yazılabiliyordu. Ayrıca gizli listeler herkese açıktı, sanatçı yüklemeleri onaysız yayına giriyordu, `update_user_badge_progress` anon'a açıktı (gövdesi de var olmayan `play_count` sütununu okuduğu için hiç çalışmıyor), `media` depolama alanı hiç yok (eski kodun bu alana yaptığı yüklemeler çalışmıyor).
 - Güvenlik migration'ı (`20261023010000_security_hardening.sql`) uygulandı ve doğrulandı: anon canlı testleri 17/17; oturumlu güvenlik testi `npm run test:rls -w @bekofy/core` 27/27 (iki geçici `@bekofy.test` hesabıyla: kendini admin/premium yapamama, askısını kaldıramama, başkasının listesine/avatarına yazamama, sanatçı yüklemesinin `pending` girmesi, Jam ve takip kuralları; test hesapları ve verileri sonunda silinir, bağımsız kontrolle doğrulandı). Her yeni migration'dan sonra bu iki test tekrar çalıştırılır.
 - Not: Auth'ta 15 hesap, `profiles`'ta 6 satır var; profili olmayan 9 hesap ilk girişte `ensureProfile` ile tamamlanır.
-- Not: kökteki `.env` şablon halindeydi; R2 anahtarları boş. Faz 3'teki yerel içe aktarma sunucusu için doldurulması gerekiyor.
+- Not: R2 anahtarları kökteki `.env`'ye eklendi (2026-10-23); Faz 3'teki yerel içe aktarma sunucusu bunları okur.
 
 ### Faz 3: YouTube içe aktarma (yerel sunucu)
 
@@ -128,7 +128,7 @@ Durum (2026-10-23):
 - Güvenlik: yalnızca `127.0.0.1`, Host denetimi (DNS rebinding), CORS izin listesi, her istekte Supabase'e sorulan admin doğrulaması, gövde sınırı, tek seferde bir içe aktarma; hata olursa R2 dosyaları ve kayıt geri alınır.
 - Bulgu: kökteki `ffmpeg-static` ikili dosyası 831 KB'ta yarım kalmıştı (Windows çalıştırmıyor); eski masaüstündeki YouTube yüklemesi bu yüzden de çalışamıyordu.
 - Testler: 35 birim/HTTP/akış testi. Gerçek boru hattı ("Me at the zoo" ile) bilgi, ilerlemeli indirme, MP3 ve kare kapak üretiyor; gerçek sunucuda 403/421/401 davranışları doğrulandı.
-- Bekleyen: R2 anahtarları (`apps/yt-server/.env`) ve gerçek admin oturumuyla R2 + veritabanı dahil uçtan uca deneme.
+- Uçtan uca test `npm run test:e2e -w @bekofy/yt-server` 13/13 (2026-10-23): gerçek sunucu, geçici `@bekofy.test` admin hesabı, gerçek R2 ve veritabanı. "Me at the zoo" 17 sn'de eklendi; Türkçe karakterli ad doğru dosya yoluna dönüştü, kayıt onaylı ve sanatçısına bağlı, ses ve kapak R2'de doğru türle, genel adres `audio/mpeg` ile 200 veriyor, aynı video ikinci kez 409 alıyor. Şarkı, sanatçı, R2 dosyaları ve hesap sonunda silinir; ayrı sorguyla doğrulandı. Şarkının uygulamada çalınması Faz 4/5'teki oynatıcıyla denenecek.
 
 ### Faz 4: Site (`apps/web`, Next.js)
 

@@ -121,3 +121,11 @@ Aşamalar ve yüzde aralıkları: indirme 0-60, dönüştürme 60-70, kapak 70-7
 ```bash
 npm test -w @bekofy/yt-server
 ```
+
+Gerçek R2 ve veritabanıyla uçtan uca test (kökteki `.env`'de `SUPABASE_SERVICE_ROLE_KEY` ve `R2_*` gerekir). Geçici bir admin
+hesabı açar, kısa bir videoyu (19 sn) içe aktarır, sonucu veritabanında, R2'de ve genel adreste denetler; sonunda şarkıyı,
+sanatçıyı, R2 dosyalarını ve hesabı siler:
+
+```bash
+npm run test:e2e -w @bekofy/yt-server
+```
