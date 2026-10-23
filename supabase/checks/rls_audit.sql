@@ -1,21 +1,57 @@
--- RLS ve depolama izinleri denetimi. Gizli bilgi içermez; çıktıyı paylaşabilirsin.
--- Supabase SQL Editor'de çalıştır. Üç sonuç tablosu döner.
+-- RLS, depolama, fonksiyon ve tetikleyici denetimi. Gizli bilgi içermez.
+-- Supabase SQL Editor yalnızca son sorgunun sonucunu gösterdiği için hepsi TEK sorguda, tek tabloda döner.
+-- Çalıştır, sonuç tablosunun üstündeki "Export" > "Download CSV" ile indir ve
+-- supabase/checks/rls_audit_output.csv olarak kaydet (git'e girmez).
 
--- 1) public şemasındaki tablolarda RLS açık mı?
-select c.relname as tablo, c.relrowsecurity as rls_acik
-from pg_class c
-join pg_namespace n on n.oid = c.relnamespace
-where n.nspname = 'public' and c.relkind = 'r'
-order by 1;
-
--- 2) Tablo ve depolama politikaları
-select schemaname as sema, tablename as tablo, policyname as politika, cmd as islem,
-       roles as roller, qual as okuma_kosulu, with_check as yazma_kosulu
-from pg_policies
-where schemaname in ('public', 'storage')
-order by 1, 2, 3;
-
--- 3) Depolama alanları (bucket) herkese açık mı?
-select id as bucket, public as herkese_acik, file_size_limit as boyut_siniri, allowed_mime_types as izinli_turler
-from storage.buckets
-order by 1;
+with tablolar as (
+  select 'tablo'::text as tur,
+         c.relname::text as ad,
+         case when c.relrowsecurity then 'RLS açık' else 'RLS KAPALI' end as detay,
+         ''::text as kosul,
+         ''::text as yazma_kosulu
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public' and c.relkind = 'r'
+),
+politikalar as (
+  select 'politika',
+         schemaname || '.' || tablename || ' / ' || policyname,
+         cmd || ' / ' || array_to_string(roles::text[], ','),
+         coalesce(qual, ''),
+         coalesce(with_check, '')
+  from pg_policies
+  where schemaname in ('public', 'storage')
+),
+alanlar as (
+  select 'depolama',
+         id::text,
+         case when public then 'herkese açık' else 'özel' end || coalesce(' / sınır ' || file_size_limit, ''),
+         coalesce(array_to_string(allowed_mime_types, ','), ''),
+         ''
+  from storage.buckets
+),
+fonksiyonlar as (
+  select 'fonksiyon',
+         p.proname::text,
+         case when p.prosecdef then 'security definer' else 'invoker' end,
+         coalesce(array_to_string(p.proacl::text[], ','), 'varsayılan izinler'),
+         ''
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+),
+tetikleyiciler as (
+  select 'tetikleyici',
+         (event_object_schema || '.' || event_object_table || ' / ' || trigger_name)::text,
+         (action_timing || ' ' || event_manipulation)::text,
+         action_statement::text,
+         ''
+  from information_schema.triggers
+  where event_object_schema in ('public', 'auth')
+)
+select * from tablolar
+union all select * from politikalar
+union all select * from alanlar
+union all select * from fonksiyonlar
+union all select * from tetikleyiciler
+order by 1, 2;

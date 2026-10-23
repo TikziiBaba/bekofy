@@ -35,6 +35,9 @@ scratch/
 # Android backup (old/unused)
 android_capacitor_backup/
 
+# Supabase denetim çıktıları (yerel inceleme için)
+supabase/checks/*_output.*
+
 # Android (local SDK path, Gradle cache, web assets copied from src/ at build time)
 android/local.properties
 android/.gradle/
