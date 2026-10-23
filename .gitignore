@@ -9,6 +9,9 @@ build/
 .next/
 next-env.d.ts
 .vercel/
+
+# Electron (apps/desktop): electron-vite derleme çıktısı
+apps/desktop/out/
 *.tsbuildinfo
 
 # Environment secrets

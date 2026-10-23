@@ -1,0 +1,52 @@
+{
+  "name": "@bekofy/desktop",
+  "productName": "Bekofy",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Bekofy masaüstü uygulaması (Electron + React + Vite)",
+  "author": "Bekir",
+  "license": "MIT",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "predev": "npm run build -w @bekofy/tokens",
+    "dev": "electron-vite dev",
+    "prebuild": "npm run build -w @bekofy/tokens",
+    "build": "electron-vite build",
+    "dist": "npm run build && electron-builder --win --publish never",
+    "release": "npm run build && electron-builder --win --publish always",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "test:e2e": "node scripts/e2e.mjs"
+  },
+  "dependencies": {
+    "@xhayper/discord-rpc": "1.5.1",
+    "electron-updater": "6.8.11"
+  },
+  "devDependencies": {
+    "@bekofy/brand": "*",
+    "@bekofy/core": "*",
+    "@bekofy/tokens": "*",
+    "@bekofy/ui": "*",
+    "@fontsource-variable/bricolage-grotesque": "5.3.0",
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
+    "@supabase/supabase-js": "2.117.2",
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/react-query": "5.104.5",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "44.9.3",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "lucide-react": "1.58.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

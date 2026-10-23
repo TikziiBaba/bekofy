@@ -1,0 +1,39 @@
+# Windows kurulum dosyası ve GitHub üzerinden otomatik güncelleme.
+# appId eski kurulumlarla aynı (com.bekofy.app): 1.x kullanıcıları yerinde 2.0'a güncellenir.
+appId: com.bekofy.app
+productName: Bekofy
+copyright: Copyright © 2026 Bekofy
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - out/**
+  - resources/icon.png
+  - package.json
+
+publish:
+  provider: github
+  owner: TikziiBaba
+  repo: bekofy
+
+protocols:
+  - name: Bekofy
+    schemes:
+      - bekofy
+
+win:
+  icon: ../../packages/brand/assets/native/bekofy.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Bekofy
+  artifactName: Bekofy.Setup.${version}.${ext}

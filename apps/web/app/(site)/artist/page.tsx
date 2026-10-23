@@ -1,4 +1,4 @@
-import { artistSongStats, formatCount, formatDuration, formatRelative, managedArtist, myArtistRequests, type ArtistSongStat } from '@bekofy/core';
+import { artistSongStats, formatAgo, formatCount, formatDuration, formatRelative, managedArtist, myArtistRequests, type ArtistSongStat } from '@bekofy/core';
 import { Notice } from '@bekofy/ui';
 import type { Metadata } from 'next';
 import { ApplyForm } from '@/components/artist/apply-form';
@@ -24,7 +24,7 @@ export default async function ArtistPage() {
         <PageHead title="Sanatçı ol" description="Başvurun onaylanınca şarkılarını buradan yükler, dinlenme sayılarını görürsün." />
         {pending ? (
           <Notice tone="info" title="Başvurun değerlendiriliyor">
-            {pending.artist_name} adıyla {formatRelative(pending.created_at)} başvurdun. Sonuç hesabına yansıyınca bu sayfa sanatçı paneline dönüşür.
+            {pending.artist_name} adıyla {formatAgo(pending.created_at)} başvurdun. Sonuç hesabına yansıyınca bu sayfa sanatçı paneline dönüşür.
           </Notice>
         ) : (
           <>

@@ -98,6 +98,11 @@
   --font-display: var(--font-family-display);
   --font-ui: var(--font-family-ui);
   --font-code: var(--font-family-mono);
+  /* Kalınlık (font-normal, font-medium, font-semibold, font-bold). inline: değişken yazılmaz, token'a bağlanır. */
+  --font-weight-normal: var(--font-weight-regular);
+  --font-weight-medium: var(--font-weight-medium);
+  --font-weight-semibold: var(--font-weight-semibold);
+  --font-weight-bold: var(--font-weight-bold);
 
   /* Hareket */
   --ease-standard: var(--easing-standard);

@@ -1,4 +1,4 @@
-import { artistsForSongs, formatDuration, formatRelative, songAudioUrl } from '@bekofy/core';
+import { artistsForSongs, formatAgo, formatDuration, songAudioUrl } from '@bekofy/core';
 import { buttonVariants } from '@bekofy/ui';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -27,7 +27,7 @@ export default async function EditSong({ params }: { params: Promise<{ id: strin
         <ArrowLeft aria-hidden="true" />
         Şarkılar
       </Link>
-      <PageHead title={song.title} description={`${song.artist} · ${formatDuration(song.duration)} · ${formatRelative(song.created_at)} eklendi${uploader?.username ? ` · yükleyen @${uploader.username}` : ''}`} />
+      <PageHead title={song.title} description={`${song.artist} · ${formatDuration(song.duration)} · ${formatAgo(song.created_at)} eklendi${uploader?.username ? ` · yükleyen @${uploader.username}` : ''}`} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Panel id="edit" title="Bilgiler">

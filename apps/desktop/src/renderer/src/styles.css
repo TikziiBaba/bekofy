@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import "@bekofy/ui/theme.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/bricolage-grotesque";
+@source "../../../../../packages/ui/src";
+
+/* Yazı tipleri uygulamayla birlikte gelir (internet gerekmez). */
+:root {
+  --font-family-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --font-family-ui: "Geist Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-family-mono: "Geist Mono Variable", ui-monospace, Consolas, monospace;
+  --title-bar-height: var(--size-control-md);
+}
+
+/* Ortam renkleri kapak değişince yumuşakça geçer. */
+@property --color-ambient-1 { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --color-ambient-2 { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --color-ambient-3 { syntax: '<color>'; inherits: true; initial-value: transparent; }
+:root {
+  transition:
+    --color-ambient-1 var(--duration-ambient) var(--easing-standard),
+    --color-ambient-2 var(--duration-ambient) var(--easing-standard),
+    --color-ambient-3 var(--duration-ambient) var(--easing-standard);
+}
+
+html, body, #root { height: 100%; overflow: hidden; }
+body { user-select: none; }
+input, textarea, [contenteditable], .selectable { user-select: text; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(var(--space-6)); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(var(--space-4)); }
+}
+
+@utility drag { -webkit-app-region: drag; }
+@utility no-drag { -webkit-app-region: no-drag; }
+
+@layer components {
+  /* Kapak yoksa: iki token renginden desen. */
+  .art {
+    --c1: var(--color-accent-default);
+    --c2: var(--color-ambient-1);
+    position: relative;
+    aspect-ratio: 1;
+    width: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 32% 68%, var(--c1) 0 30%, transparent 31%), linear-gradient(160deg, var(--c2), color-mix(in oklch, var(--c1) 45%, var(--c2)));
+  }
+
+  /* Kaydırıcı (ilerleme, ses). --val dolu kısmın yüzdesi. */
+  .slider {
+    --val: 0%;
+    appearance: none;
+    width: 100%;
+    height: var(--space-6);
+    background: transparent;
+    cursor: pointer;
+    margin: 0;
+  }
+  .slider::-webkit-slider-runnable-track {
+    height: var(--space-1);
+    border-radius: var(--radius-full);
+    background: linear-gradient(to right, var(--slider-fill) var(--val), var(--slider-track) var(--val));
+  }
+  .slider:hover::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--color-accent-text) var(--val), var(--slider-track) var(--val)); }
+  .slider::-webkit-slider-thumb {
+    appearance: none;
+    width: var(--space-3);
+    height: var(--space-3);
+    margin-top: calc((var(--space-1) - var(--space-3)) / 2);
+    border-radius: var(--radius-full);
+    background: var(--slider-thumb);
+    opacity: 0;
+  }
+  .slider:hover::-webkit-slider-thumb, .slider:focus-visible::-webkit-slider-thumb { opacity: 1; }
+
+  /* İnce kaydırma çubuğu */
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: var(--color-fill-muted) transparent; }
+}

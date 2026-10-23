@@ -19,7 +19,10 @@
     "test:watch": "jest --watch",
     "yt-server": "npm run start -w @bekofy/yt-server",
     "yt-server:setup": "npm run setup -w @bekofy/yt-server",
-    "yt-server:update": "npm run update -w @bekofy/yt-server"
+    "yt-server:update": "npm run update -w @bekofy/yt-server",
+    "desktop": "npm run dev -w @bekofy/desktop",
+    "desktop:dist": "npm run dist -w @bekofy/desktop",
+    "web": "npm run dev -w @bekofy/web"
   },
   "author": "Bekir",
   "license": "MIT",

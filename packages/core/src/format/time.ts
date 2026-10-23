@@ -35,6 +35,12 @@ export function formatRelative(date: Date | string | number, now: Date = new Dat
   return `${Math.floor(diff / (86400 * 7))} hf`;
 }
 
+/** Cümle içinde: "az önce", "4 dk önce", "3 sa önce". */
+export function formatAgo(date: Date | string | number, now: Date = new Date()): string {
+  const r = formatRelative(date, now);
+  return r === 'Şimdi' ? 'az önce' : `${r} önce`;
+}
+
 const NUMBER = new Intl.NumberFormat('tr-TR');
 
 /** 412380 -> "412.380". */

@@ -1,4 +1,4 @@
-import { admin, formatRelative } from '@bekofy/core';
+import { admin, formatAgo } from '@bekofy/core';
 import { Button, buttonVariants, Input } from '@bekofy/ui';
 import { Search } from 'lucide-react';
 import Link from 'next/link';
@@ -45,7 +45,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate type-label-md">{u.username ? `@${u.username}` : 'Kullanıcı adı yok'}</span>
                   <span className="truncate type-body-sm text-fg-muted">
-                    Katıldı {formatRelative(u.created_at)} · son etkinlik {formatRelative(u.last_activity)}
+                    {formatAgo(u.created_at)} katıldı · son etkinlik {formatAgo(u.last_activity)}
                   </span>
                 </div>
               </div>

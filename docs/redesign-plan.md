@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0-3 tamamlandı; Faz 4 (site) yapıldı ve doğrulandı, yayına alma adımları bekliyor (dal: `redesign`); sırada Faz 5
+Tarih: 2026-10-22 · Durum: Faz 0-3 tamamlandı; Faz 4 (site) ve Faz 5 (masaüstü) yapıldı ve doğrulandı, yayına alma adımları bekliyor (dal: `redesign`); sırada Faz 6
 
 ## Kararlar
 
@@ -183,10 +183,45 @@ Durum (2026-10-24):
 
 - electron-vite + React + TS; electron-builder ve GitHub üzerinden otomatik güncelleme korunur.
 - `main.js` modüllere bölünür: pencereler, IPC, çevrimdışı indirme, Discord, güncelleyici, mini oynatıcı. Preload tipli ve dar bir API sunar.
-- Tüm özellikler yeni tasarımla: özel başlık çubuğu, mini oynatıcı, Discord durumu, çoklu hesap, admin terminali.
+- Tüm özellikler yeni tasarımla: özel başlık çubuğu, mini oynatıcı, Discord durumu, çoklu hesap. (Admin terminali kaldırıldı, bkz. kararlar.)
 - Uygulama kimliği uyumsuzluğu giderilir.
 
 Doğrulama: her ekran için durum + kontrast kontrolleri; elle kontrol listesi (çal, ara, liste oluştur, indir, çevrimdışı çal, mini oynatıcı, güncelleme); Windows kurulum dosyası üretiliyor.
+
+Kararlar (2026-10-23): Discord'da "Bekofy dinliyor" olarak görünür (eski "Spotify" taklidi kaldırıldı; Discord kurallarına
+aykırıydı). Admin terminali kaldırıldı; admin işleri sitedeki panelde, uygulamada siteye bağlantı var.
+
+Durum (2026-10-23):
+
+- Yapıldı: `apps/desktop` (Electron 44, electron-vite 6, React 19, Tailwind v4, `@bekofy/ui`). Ana süreç modülleri:
+  pencereler, güvenlik (gezinme ve yeni pencere engeli, izinler kapalı, dış bağlantılar izinli https adresleriyle),
+  çevrimdışı indirme (`bekofy-media://` şeması, yalnızca uuid), Discord, güncelleyici, kapak rengi, mini oynatıcı.
+  Preload sandbox'lı ve tipli dar bir API açar; IPC yalnızca kendi pencerelerinden gelen istekleri kabul eder.
+- Arayüz: giriş/kayıt (e-posta ve Google; Google dönüşü `bekofy://auth/callback`), ana sayfa, arama (şarkı, sanatçı,
+  liste, kişi), kitaplık (listeler, sanatçılar, indirilenler), beğenilenler, çalma listesi (oluştur, ad değiştir, gizli/açık,
+  sil, şarkı ekle/çıkar, tümünü indir), albüm, sanatçı (takip), profil (takip, rozetler, en çok dinlenenler), ayarlar
+  (tema, kapak rengi, Discord, hesaplar), Jam (başlat/katıl, canlı eşitleme), şimdi çalıyor (senkron sözler, satıra
+  tıklayınca gider), yılın özeti, sağ panel (sıradakiler, arkadaş etkinliği canlı), mini oynatıcı, güncelleme bandı.
+  Oynatıcı: kuyruk çekirdekte; dinleme geçmişi, "şimdi ne dinliyor", Windows medya tuşları, kısayollar.
+- Çoklu hesap gerçekten çalışıyor: her hesabın oturumu ayrı anahtarda; geçişte yeniden giriş gerekmez.
+- Güvenlik farkı: eski uygulama R2 anahtarlarını `.env` ile pakete koyuyordu ve arayüzden R2'ye yükleme açıktı; yeni pakette
+  anahtar yok (asar içeriği denetlendi), içerik güvenlik politikası dış betikleri engelliyor.
+- Uyumluluk: appId `com.bekofy.app` ve ad "Bekofy" eski kurulumla aynı; 1.x kullanıcıları yerinde güncellenir, indirilen
+  şarkılar (`offline-songs`) aynı klasörden çalar. Oturumlar yeni anahtarlarda olduğu için ilk açılışta bir kez giriş yapılır.
+- Doğrulama:
+  - Uçtan uca `node apps/desktop/scripts/e2e.mjs`: 44/44. Derlenmiş uygulama gerçek Electron'da, ayrı veri klasörüyle,
+    iki geçici hesapla: giriş (giriş kaydı "desktop"), arama, çalma, ses düzeyi, beğenme, liste oluştur/ekle/çıkar,
+    indirip diskten çalma (başka yol okunamıyor), mini oynatıcı, şimdi çalıyor, yılın özeti, Jam başlat/bitir, tema,
+    en dar pencerede taşma, hesap ekleme ve geçiş, takip; 13 ekran koyu ve açık temada axe, kontrast, klavye odağı.
+    Hesaplar ve oluşturdukları her şey sonunda silinir.
+  - `npm run dist -w @bekofy/desktop`: `Bekofy.Setup.2.0.0.exe` (122 MB) üretildi; paketlenmiş uygulama ayrı profille açıldı.
+  - Tip denetimi, birim testleri, emoji ve sabit değer denetimleri.
+- Bekleyen (senden):
+  1. Discord Developer Portal'da "Bekofy" adlı uygulama aç; Application ID'yi ver (`src/main/config.ts`). Rich Presence >
+     Art Assets'e `bekofy` adlı logo yükle. Verilene kadar Discord durumu kapalı.
+  2. Supabase > Authentication > URL Configuration > Redirect URLs: `bekofy://auth/callback` (masaüstünde Google girişi).
+  3. Sürüm yayınlamak için yeni bir GitHub token'ı (eskisi açığa çıktı) ve `npm run release -w @bekofy/desktop`.
+  Kurulum dosyası imzasız; Windows SmartScreen uyarısı eskisi gibi görünür.
 
 ### Faz 6: Mobil (`apps/mobile`, Expo)
 
