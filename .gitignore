@@ -35,6 +35,9 @@ scratch/
 # Android backup (old/unused)
 android_capacitor_backup/
 
+# YouTube içe aktarma sunucusu: indirilen yt-dlp ikili dosyası
+apps/yt-server/bin/
+
 # Supabase denetim çıktıları (yerel inceleme için)
 supabase/checks/*_output.*
 

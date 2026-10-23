@@ -23,11 +23,22 @@ export interface ClientOptions {
   storageKey?: string;
   /** Web'de OAuth dönüşü için true; masaüstü ve mobilde false. */
   detectSessionInUrl?: boolean;
+  /**
+   * Sunucu tarafı: istemcinin oturum anahtarıyla, onun adına (RLS onun yetkisiyle) sorgu yapar.
+   * Verilirse oturum saklanmaz ve yenilenmez.
+   */
+  accessToken?: string;
 }
 
 export function createBekofyClient(options: ClientOptions = {}): BekofyClient {
   const url = options.url ?? SUPABASE_URL;
   const anonKey = options.anonKey ?? SUPABASE_ANON_KEY;
+  if (options.accessToken) {
+    return createClient<Database>(url, anonKey, {
+      global: { headers: { Authorization: `Bearer ${options.accessToken}` } },
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+  }
   return createClient<Database>(url, anonKey, {
     auth: {
       storage: options.storage,

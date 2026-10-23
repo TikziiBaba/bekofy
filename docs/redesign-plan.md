@@ -121,6 +121,15 @@ Site admin paneli ──(Supabase oturumu)──> http://localhost:4317  (senin 
 
 Doğrulama: gerçek bir linkle uçtan uca test (dosya R2'de, kayıt songs tablosunda, şarkı uygulamada çalıyor); admin olmayan oturum 403 alıyor; Türkçe karakterli başlık doğru dosya adına dönüşüyor.
 
+Durum (2026-10-23):
+
+- Yapıldı: `apps/yt-server` (Node + tsx, framework yok). Kullanım ve API: `apps/yt-server/README.md`. Kurulum `npm run yt-server:setup`: yt-dlp ve ffmpeg/ffprobe yt-dlp ekibinin resmi sürümlerinden indirilir, SHA-256 doğrulanır. YouTube'un JavaScript doğrulamaları için yt-dlp'ye sunucunun kendi Node'u (22+) verilir; Deno gerekmez.
+- Sunucuda service role anahtarı yok: şarkı kaydı adminin oturumuyla, RLS altında yapılır. `.env` yalnızca R2 içerir.
+- Güvenlik: yalnızca `127.0.0.1`, Host denetimi (DNS rebinding), CORS izin listesi, her istekte Supabase'e sorulan admin doğrulaması, gövde sınırı, tek seferde bir içe aktarma; hata olursa R2 dosyaları ve kayıt geri alınır.
+- Bulgu: kökteki `ffmpeg-static` ikili dosyası 831 KB'ta yarım kalmıştı (Windows çalıştırmıyor); eski masaüstündeki YouTube yüklemesi bu yüzden de çalışamıyordu.
+- Testler: 35 birim/HTTP/akış testi. Gerçek boru hattı ("Me at the zoo" ile) bilgi, ilerlemeli indirme, MP3 ve kare kapak üretiyor; gerçek sunucuda 403/421/401 davranışları doğrulandı.
+- Bekleyen: R2 anahtarları (`apps/yt-server/.env`) ve gerçek admin oturumuyla R2 + veritabanı dahil uçtan uca deneme.
+
 ### Faz 4: Site (`apps/web`, Next.js)
 
 - Tanıtım + indirme: Windows kurulum dosyası GitHub Releases'tan, Android uygulaması, iOS daha sonra.

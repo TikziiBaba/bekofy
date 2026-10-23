@@ -2,7 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { formatCount, formatDuration, formatRelative, formatTotalDuration, parseDuration } from './format/time';
 import { publicUrl, songAudioPath, songCoverPath } from './media/paths';
 import { cleanChannelName, parseYouTubeLink, parseYouTubeTitle } from './media/youtube';
+import { joinArtistNames, splitArtistNames } from './text/artists';
 import { slugify } from './text/slug';
+
+describe('sanatçı adları', () => {
+  it.each([
+    ['Motive, UZİ', ['Motive', 'UZİ']],
+    ['Sezen Aksu & Tarkan', ['Sezen Aksu', 'Tarkan']],
+    ['Ayaz Kaya feat. Selin Aras', ['Ayaz Kaya', 'Selin Aras']],
+    ['Ayaz Kaya ft Selin Aras', ['Ayaz Kaya', 'Selin Aras']],
+    ['Kafthan', ['Kafthan']],
+    ['A, a, , B', ['A', 'B']],
+  ])('%s', (text, names) => expect(splitArtistNames(text)).toEqual(names));
+  it('birleştirme', () => expect(joinArtistNames([' Motive', 'UZİ ', ''])).toBe('Motive, UZİ'));
+});
 
 describe('slugify', () => {
   it.each([

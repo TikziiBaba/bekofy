@@ -16,7 +16,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "jest --passWithNoTests",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "yt-server": "npm run start -w @bekofy/yt-server",
+    "yt-server:setup": "npm run setup -w @bekofy/yt-server",
+    "yt-server:update": "npm run update -w @bekofy/yt-server"
   },
   "author": "Bekir",
   "license": "MIT",

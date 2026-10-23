@@ -21,6 +21,7 @@ export * as admin from './db/admin';
 export * from './db/access-logs';
 export * from './player/queue';
 export * from './text/slug';
+export * from './text/artists';
 export * from './media/youtube';
 export * from './media/paths';
 export * from './format/time';
