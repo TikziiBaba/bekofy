@@ -1,5 +1,7 @@
 import { BekofyMark } from '@bekofy/ui';
 import { useEffect } from 'react';
+import { isPremium } from '@bekofy/core';
+import { setDownloadAllowed } from './lib/offline';
 import { player } from './lib/player';
 import { SessionProvider, useSession } from './lib/session';
 import { AuthScreen } from './screens/auth';
@@ -19,6 +21,7 @@ function Gate() {
   // Oynatıcı, dinleme geçmişini ve "şimdi ne dinliyor"u etkin hesaba yazar.
   useEffect(() => {
     player.setAccount(state.status === 'signed-in' ? { sb: state.sb, userId: state.user.id } : null);
+    setDownloadAllowed(state.status === 'signed-in' && isPremium(state.profile));
   }, [state]);
 
   if (state.status === 'loading') {

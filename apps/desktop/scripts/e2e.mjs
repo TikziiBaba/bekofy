@@ -146,10 +146,22 @@ try {
     check('şarkı listeden çıkarıldı', after.data?.length === 0);
   });
 
-  await step('indirme ve diskten çalma', async () => {
+  await step('indirme Premium ister', async () => {
     await go(`#/search?q=${encodeURIComponent(song.title.slice(0, 12))}`);
     await win.getByRole('button', { name: `Diğer seçenekler: ${song.title}` }).first().click();
-    await win.getByRole('button', { name: 'İndir' }).click();
+    await win.getByRole('button', { name: 'İndir (Premium)' }).click();
+    await toast("Premium'a özel");
+    check('Premium olmayan kullanıcı indiremez, nedeni söylenir', !existsSync(join(userData, 'offline-songs', `${song.id}.mp3`)));
+  });
+
+  await step('indirme ve diskten çalma', async () => {
+    // Premium verilir; uygulama profili yeniden okuyunca (yeniden yükleme) indirme açılır.
+    await sb.from('profiles').update({ is_premium: true }).eq('id', USERS[0].id);
+    await win.reload();
+    await win.getByRole('navigation', { name: 'Ana menü' }).waitFor({ timeout: 20000 });
+    await go(`#/search?q=${encodeURIComponent(song.title.slice(0, 12))}`);
+    await win.getByRole('button', { name: `Diğer seçenekler: ${song.title}` }).first().click();
+    await win.getByRole('button', { name: 'İndir', exact: true }).click();
     await toast('indirildi', 60000);
     const file = join(userData, 'offline-songs', `${song.id}.mp3`);
     // Oynatıcının yolu: ses öğesi bekofy-media:// adresini yükler (fetch, içerik güvenlik politikasında kapalı).
@@ -170,6 +182,11 @@ try {
     await go('#/library/downloads');
     await win.getByRole('list', { name: 'İndirilen şarkılar' }).waitFor();
     check('kitaplıkta indirilenler listesinde görünüyor', await win.getByRole('list', { name: 'İndirilen şarkılar' }).getByText(song.title).first().isVisible());
+    await win.getByRole('list', { name: 'İndirilen şarkılar' }).getByRole('button', { name: `Çal: ${song.title}` }).click();
+    await win.getByRole('button', { name: `Duraklat: ${song.title}` }).first().waitFor({ timeout: 15000 });
+    await win.waitForTimeout(2500);
+    const pos = Number(await win.getByRole('slider', { name: 'Şarkıda konum' }).inputValue());
+    check('indirilenler listesinden çalınıyor', pos >= 1, `konum ${pos}`);
   });
 
   await step('mini oynatıcı', async () => {

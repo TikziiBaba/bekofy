@@ -9,7 +9,7 @@ import { showToast } from '../components/toast';
 import { TrackList } from '../components/track-list';
 import { isDesktop } from '../lib/bridge';
 import { keys } from '../lib/data';
-import { downloadTrack } from '../lib/offline';
+import { canDownload, downloadTrack, PREMIUM_DOWNLOAD_MESSAGE } from '../lib/offline';
 import { player, usePlayer } from '../lib/player';
 import { href, navigate } from '../lib/router';
 import { useAuthed } from '../lib/session';
@@ -72,8 +72,9 @@ export function PlaylistScreen({ id }: { id: string }) {
               </IconButton>
               {isDesktop && songs.length ? (
                 <IconButton
-                  label="Tümünü indir"
+                  label={canDownload() ? 'Tümünü indir' : 'Tümünü indir (Premium)'}
                   onClick={async () => {
+                    if (!canDownload()) return showToast(PREMIUM_DOWNLOAD_MESSAGE);
                     showToast(`${songs.length} şarkı indiriliyor`);
                     let failed = 0;
                     for (const t of songs) if (await downloadTrack(sb, t)) failed++;

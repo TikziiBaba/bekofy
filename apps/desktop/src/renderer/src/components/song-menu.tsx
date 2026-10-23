@@ -2,7 +2,7 @@ import { artistByName } from '@bekofy/core';
 import { CircleCheck, Disc3, Download, Ellipsis, ListEnd, ListPlus, ListStart, MicVocal, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useAddToPlaylist, usePlaylists } from '../lib/data';
-import { downloadTrack, removeDownload, useOffline } from '../lib/offline';
+import { canDownload, downloadTrack, removeDownload, useOffline } from '../lib/offline';
 import { player, type Track } from '../lib/player';
 import { navigate } from '../lib/router';
 import { useAuthed } from '../lib/session';
@@ -81,7 +81,7 @@ export function SongMenu({ track, onRemove }: { track: Track; onRemove?: () => v
                   )}
                 >
                   <Download aria-hidden="true" />
-                  İndir
+                  {canDownload() ? 'İndir' : 'İndir (Premium)'}
                 </button>
               )
             ) : null}

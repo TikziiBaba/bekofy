@@ -35,8 +35,17 @@ bridge?.offline.onEvent((e) => {
   }
 });
 
+/** İnternetsiz dinleme Premium'a özel (sitede ve eski uygulamada da böyle). Oturum açılınca ayarlanır. */
+let allowed = false;
+export const setDownloadAllowed = (v: boolean) => {
+  allowed = v;
+};
+export const canDownload = () => allowed;
+export const PREMIUM_DOWNLOAD_MESSAGE = "İnternetsiz dinleme Premium'a özel. Ayarlar > Üyelik bölümünden inceleyebilirsin.";
+
 export async function downloadTrack(sb: BekofyClient, t: Track): Promise<string | null> {
   if (!bridge) return 'İndirme yalnızca masaüstü uygulamasında var.';
+  if (!allowed) return PREMIUM_DOWNLOAD_MESSAGE;
   const { [t.id]: _old, ...errors } = state.errors;
   set({ progress: { ...state.progress, [t.id]: 0 }, errors });
   const res = await bridge.offline.download({ id: t.id, title: t.title, artist: t.artist, album: t.album, cover_url: t.cover_url, duration: t.duration, url: songAudioUrl(sb, t) });
