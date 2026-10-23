@@ -754,6 +754,7 @@ export type Database = {
           status: string;
           lyrics: string | null;
           synced_lyrics: string | null;
+          uploaded_by: string | null;
         };
         Insert: {
           id?: string;
@@ -768,6 +769,7 @@ export type Database = {
           status?: string;
           lyrics?: string | null;
           synced_lyrics?: string | null;
+          uploaded_by?: string | null;
         };
         Update: {
           id?: string;
@@ -782,6 +784,7 @@ export type Database = {
           status?: string;
           lyrics?: string | null;
           synced_lyrics?: string | null;
+          uploaded_by?: string | null;
         };
         Relationships: [
 
@@ -864,8 +867,10 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      artist_song_stats: { Args: Record<PropertyKey, never>; Returns: unknown };
       is_admin: { Args: Record<PropertyKey, never>; Returns: unknown };
       review_artist_request: { Args: { p_approve: boolean; p_request_id: string }; Returns: unknown };
+      submit_artist_song: { Args: { p_album: string; p_cover_url: string; p_duration: number; p_file_path: string; p_genre: string; p_title: string }; Returns: unknown };
       update_user_badge_progress: { Args: { p_user_id: string }; Returns: unknown };
     };
     Enums: { [_ in never]: never };

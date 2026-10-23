@@ -10,6 +10,7 @@ export * from './db/library';
 export * from './db/artists';
 export * from './db/history';
 export * from './db/artist-requests';
+export * from './db/artist-songs';
 export * from './db/playlists';
 export * from './db/social';
 export * from './db/activity';

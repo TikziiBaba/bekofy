@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { artistSongProblem, audioProblem, MAX_AUDIO_BYTES } from './artist-songs';
 import { DataError, likeExact, must, searchTerm, toDataError } from './errors';
 import { formatJamCode, generateJamCode, JAM_CODE_ALPHABET, normalizeJamCode } from './jam';
 import { activeLineIndex, fetchLyrics, parseLrc, storedLyrics } from './lyrics';
@@ -111,5 +112,24 @@ describe('görsel denetimi', () => {
     expect(imageProblem({ type: 'image/png', size: 1000 })).toBeNull();
     expect(imageProblem({ type: 'image/gif', size: 1000 })).toContain('JPG, PNG ya da WebP');
     expect(imageProblem({ type: 'image/jpeg', size: 6 * 1024 * 1024 })).toContain('5 MB');
+  });
+});
+
+describe('sanatçı yüklemesi', () => {
+  it('yalnızca MP3 kabul edilir; boyut sınırı uygulanır', () => {
+    expect(audioProblem({ type: 'audio/mpeg', size: 5_000_000 })).toBeNull();
+    expect(audioProblem({ type: 'audio/mp3', size: 5_000_000 })).toBeNull();
+    expect(audioProblem({ type: '', size: 5_000_000, name: 'Şarkı.MP3' })).toBeNull();
+    expect(audioProblem({ type: 'audio/wav', size: 5_000_000 })).toContain('MP3');
+    expect(audioProblem({ type: 'audio/mpeg', size: MAX_AUDIO_BYTES + 1 })).toContain('30 MB');
+    expect(audioProblem({ type: 'audio/mpeg', size: 0 })).toContain('boş');
+  });
+  it('alanlar denetlenir', () => {
+    expect(artistSongProblem({ title: 'Yaz Sonu', duration: 219 })).toBeNull();
+    expect(artistSongProblem({ title: '  ', duration: 219 })).toContain('adını');
+    expect(artistSongProblem({ title: 'x'.repeat(201), duration: 219 })).toContain('200');
+    expect(artistSongProblem({ title: 'A', genre: 'g'.repeat(61), duration: 219 })).toContain('Tür');
+    expect(artistSongProblem({ title: 'A', duration: Number.NaN })).toContain('okunamadı');
+    expect(artistSongProblem({ title: 'A', duration: 31 * 60 })).toContain('30 dakika');
   });
 });

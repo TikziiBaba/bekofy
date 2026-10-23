@@ -1,0 +1,211 @@
+/*
+ * Bekofy Tailwind v4 teması. Tek kaynak packages/tokens: burada yalnızca token değişkenlerine yardımcı sınıf adları verilir.
+ * Kullanım (uygulamanın CSS'i):
+ *   @import "tailwindcss";
+ *   @import "@bekofy/ui/theme.css";
+ *   @source "<packages/ui/src yolu>";
+ *
+ * Adlar token adlarıyla çakışmaz (ör. bg-page -> --color-surface-page); çakışsaydı Tailwind'in yazdığı değişken
+ * token'ı kendine bağlayıp döngüye sokardı. Tailwind'in hazır renk paleti kapalı: renk yalnızca token'dan gelir.
+ */
+
+@import "@bekofy/tokens/css";
+
+@theme {
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-*: initial;
+  --font-*: initial;
+  --font-weight-*: initial;
+  --tracking-*: initial;
+  --leading-*: initial;
+  --ease-*: initial;
+  --blur-*: initial;
+}
+
+@theme inline {
+  /* Yüzeyler */
+  --color-page: var(--color-surface-page);
+  --color-raised: var(--color-surface-raised);
+  --color-sunken: var(--color-surface-sunken);
+  --color-inverse: var(--color-surface-inverse);
+  /* Yazı */
+  --color-fg: var(--color-text-primary);
+  --color-fg-muted: var(--color-text-secondary);
+  --color-fg-subtle: var(--color-text-tertiary);
+  --color-fg-disabled: var(--color-text-disabled);
+  --color-fg-inverse: var(--color-text-inverse);
+  /* Çizgi, dolgu, durum */
+  --color-line: var(--color-border-subtle);
+  --color-line-strong: var(--color-border-strong);
+  --color-fill: var(--color-fill-subtle);
+  --color-fill-strong: var(--color-fill-muted);
+  --color-hover: var(--color-state-hover);
+  --color-pressed: var(--color-state-pressed);
+  /* Vurgu ve marka */
+  --color-accent: var(--color-accent-default);
+  --color-on-accent: var(--color-accent-on);
+  --color-accent-fg: var(--color-accent-text);
+  --color-ring: var(--color-focus);
+  --color-brand: var(--color-logo);
+  --color-danger: var(--color-destructive-default);
+  --color-on-danger: var(--color-destructive-on);
+  /* Geri bildirim */
+  --color-danger-fg: var(--color-feedback-danger-text);
+  --color-danger-bg: var(--color-feedback-danger-bg);
+  --color-danger-line: var(--color-feedback-danger-border);
+  --color-warning-fg: var(--color-feedback-warning-text);
+  --color-warning-bg: var(--color-feedback-warning-bg);
+  --color-warning-line: var(--color-feedback-warning-border);
+  --color-success-fg: var(--color-feedback-success-text);
+  --color-success-bg: var(--color-feedback-success-bg);
+  --color-success-line: var(--color-feedback-success-border);
+  --color-info-fg: var(--color-feedback-info-text);
+  --color-info-bg: var(--color-feedback-info-bg);
+  --color-info-line: var(--color-feedback-info-border);
+  /* Cam */
+  --color-glass: var(--color-glass-chrome-bg);
+  --color-glass-soft: var(--color-glass-panel-bg);
+  --color-edge: var(--color-glass-edge);
+  --color-hairline: var(--color-glass-hairline);
+  --color-backdrop: var(--color-scrim);
+
+  /* Köşeler */
+  --radius-ui-xs: var(--radius-xs);
+  --radius-ui-sm: var(--radius-sm);
+  --radius-ui-md: var(--radius-md);
+  --radius-ui-lg: var(--radius-lg);
+  --radius-ui-xl: var(--radius-xl);
+  --radius-ui-2xl: var(--radius-2xl);
+  --radius-pill: var(--radius-full);
+  --radius-ui-card: var(--radius-card);
+  --radius-ui-control: var(--radius-control);
+  --radius-ui-sheet: var(--radius-sheet);
+  --radius-art-sm: var(--radius-artwork-sm);
+  --radius-art-md: var(--radius-artwork-md);
+  --radius-art-lg: var(--radius-artwork-lg);
+
+  /* Gölgeler */
+  --shadow-ui-sm: var(--shadow-sm);
+  --shadow-ui-md: var(--shadow-md);
+  --shadow-ui-lg: var(--shadow-lg);
+  --shadow-ui-glass: var(--shadow-glass);
+
+  /* Yazı tipleri */
+  --font-display: var(--font-family-display);
+  --font-ui: var(--font-family-ui);
+  --font-code: var(--font-family-mono);
+
+  /* Hareket */
+  --ease-standard: var(--easing-standard);
+  --ease-enter: var(--easing-enter);
+  --ease-exit: var(--easing-exit);
+  --ease-emphasized: var(--easing-emphasized);
+}
+
+/* Bileşik yazı stilleri: tek sınıf boyut, kalınlık, satır yüksekliği, aile ve harf aralığını birlikte verir. */
+@utility type-display-xl { font: var(--text-display-xl-font); letter-spacing: var(--text-display-xl-tracking); }
+@utility type-display-lg { font: var(--text-display-lg-font); letter-spacing: var(--text-display-lg-tracking); }
+@utility type-title-xl { font: var(--text-title-xl-font); letter-spacing: var(--text-title-xl-tracking); }
+@utility type-title-lg { font: var(--text-title-lg-font); letter-spacing: var(--text-title-lg-tracking); }
+@utility type-title-md { font: var(--text-title-md-font); letter-spacing: var(--text-title-md-tracking); }
+@utility type-title-sm { font: var(--text-title-sm-font); letter-spacing: var(--text-title-sm-tracking); }
+@utility type-body-lg { font: var(--text-body-lg-font); letter-spacing: var(--text-body-lg-tracking); }
+@utility type-body-md { font: var(--text-body-md-font); letter-spacing: var(--text-body-md-tracking); }
+@utility type-body-sm { font: var(--text-body-sm-font); letter-spacing: var(--text-body-sm-tracking); }
+@utility type-label-md { font: var(--text-label-md-font); letter-spacing: var(--text-label-md-tracking); }
+@utility type-label-sm { font: var(--text-label-sm-font); letter-spacing: var(--text-label-sm-tracking); }
+@utility type-caption { font: var(--text-caption-font); letter-spacing: var(--text-caption-tracking); }
+@utility type-mono { font: var(--text-mono-font); letter-spacing: var(--text-mono-tracking); }
+
+/* Büyük başlık: ekran genişliğiyle büyür, token ölçeğinin dışına çıkmaz. */
+@utility type-hero {
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-bold);
+  font-size: clamp(var(--font-size-5xl), 7vw, var(--font-size-7xl));
+  line-height: var(--font-line-height-display);
+  letter-spacing: var(--font-letter-spacing-display);
+  text-wrap: balance;
+}
+@utility type-headline {
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-bold);
+  font-size: clamp(var(--font-size-3xl), 4vw, var(--font-size-5xl));
+  line-height: var(--font-line-height-tight);
+  letter-spacing: var(--font-letter-spacing-tight);
+  text-wrap: balance;
+}
+
+/* Cam yüzeyler */
+@utility glass-chrome {
+  background: var(--color-glass-chrome-bg);
+  -webkit-backdrop-filter: blur(var(--blur-chrome)) saturate(var(--saturate-glass));
+  backdrop-filter: blur(var(--blur-chrome)) saturate(var(--saturate-glass));
+  border: var(--size-border-hairline) solid var(--color-glass-hairline);
+  box-shadow: var(--shadow-glass);
+}
+@utility glass-panel {
+  background: var(--color-glass-panel-bg);
+  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-glass));
+  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-glass));
+  border: var(--size-border-hairline) solid var(--color-glass-hairline);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Düğme dolgusu üzerine durum katmanı (hover/pressed): token saydamlığıyla, yeni renk üretmeden. */
+@utility bg-accent-hover {
+  background-color: color-mix(in srgb, var(--button-primary-fg) calc(var(--opacity-state-hover) * 100%), var(--button-primary-bg));
+}
+@utility bg-accent-pressed {
+  background-color: color-mix(in srgb, var(--button-primary-fg) calc(var(--opacity-state-pressed) * 100%), var(--button-primary-bg));
+}
+@utility bg-danger-hover {
+  background-color: color-mix(in srgb, var(--button-destructive-fg) calc(var(--opacity-state-hover) * 100%), var(--button-destructive-bg));
+}
+@utility bg-danger-pressed {
+  background-color: color-mix(in srgb, var(--button-destructive-fg) calc(var(--opacity-state-pressed) * 100%), var(--button-destructive-bg));
+}
+
+/* Ortam zemini: varsayılan yeşil tonlar (site kapaktan renk almaz). */
+@utility ambient {
+  background:
+    radial-gradient(120% 80% at 10% 0%, var(--color-ambient-1), transparent 60%),
+    radial-gradient(90% 70% at 100% 30%, var(--color-ambient-2), transparent 65%),
+    linear-gradient(180deg, var(--color-ambient-3), var(--color-surface-page));
+}
+
+@layer base {
+  :root { color-scheme: dark; }
+  :root[data-theme='light'] { color-scheme: light; }
+  :root[data-theme='system'] { color-scheme: light dark; }
+
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--color-surface-page);
+    color: var(--color-text-primary);
+    font: var(--text-body-md-font);
+    letter-spacing: var(--text-body-md-tracking);
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+  ::selection { background: var(--color-accent-default); color: var(--color-accent-on); }
+  [hidden] { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 1ms !important; /* ds-allow-hardcode: hareket azaltma, anında bitir */
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important; /* ds-allow-hardcode: hareket azaltma, anında bitir */
+      scroll-behavior: auto !important;
+    }
+  }
+}

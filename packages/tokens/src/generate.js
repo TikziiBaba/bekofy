@@ -38,11 +38,15 @@ function cssDeclarations(path, token, emitted, useVars) {
       return [[name, `cubic-bezier(${v.join(', ')})`]];
     case 'shadow':
       return [[name, cssShadow(token, emitted)]];
-    case 'typography':
+    case 'typography': {
+      // Aile var() olarak kalır: uygulama yazı tipini kendi adıyla yüklediğinde (ör. next/font) tek değişkeni ezmesi yeter.
+      const familyAlias = useVars && typeof token.raw.fontFamily === 'string' && token.raw.fontFamily.match(ALIAS);
+      const family = familyAlias && emitted.has(familyAlias[1]) ? `var(${cssVarName(familyAlias[1])})` : fontStack(v.fontFamily);
       return [
-        [`${name}-font`, `${v.fontWeight} ${v.fontSize}/${v.lineHeight} ${fontStack(v.fontFamily)}`],
+        [`${name}-font`, `${v.fontWeight} ${v.fontSize}/${v.lineHeight} ${family}`],
         [`${name}-tracking`, v.letterSpacing],
       ];
+    }
     default:
       return [[name, String(v)]];
   }
