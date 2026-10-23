@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import type { AdminSession } from './auth';
 import { HttpError } from './errors';
 import { runImport, type ImportDeps, type ImportEvent, type ImportRequest } from './importer';
@@ -40,8 +40,13 @@ const has = (calls: Array<[string, unknown[]]>, name: string) => calls.some(([n]
 const info: VideoInfo = { id: 'dQw4w9WgXcQ', title: 'x', channel: 'x', duration: 219, thumbnail: null, isLive: false, track: null, artist: null, album: null };
 const request: ImportRequest = { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: 'Ağustos Böceği', artists: ['Ayaz Kaya', 'Selin Aras'], album: 'Ağustos', cover: { kind: 'youtube' } };
 
+// Testlerin geçici kök klasörleri sonunda silinir.
+const roots: string[] = [];
+afterAll(() => roots.forEach((r) => rmSync(r, { recursive: true, force: true })));
+
 function setup({ existing = false, insertFails = false, downloadFails = false } = {}) {
   const tmpRoot = mkdtempSync(join(tmpdir(), 'bekofy-test-'));
+  roots.push(tmpRoot);
   const uploads: Array<{ key: string; type: string }> = [];
   const removed: string[] = [];
   const storage: Storage = {

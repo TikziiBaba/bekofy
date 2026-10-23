@@ -151,23 +151,44 @@ async function login(page) {
   await page.waitForURL(`${BASE}/account`, { timeout: 20000 });
 }
 
-const states = [...PUBLIC, ...(auth ? AUTHED : [])].filter(([name]) => !only || name.includes(only));
+const pick = (list) => list.filter(([name]) => !only || name.includes(only));
+// Oturumsuz sayfalar oturumsuz tarayıcıda: oturum açıkken giriş/kayıt sayfaları hesaba yönlendirir.
+const groups = [
+  { signedIn: false, states: pick(PUBLIC) },
+  ...(auth ? [{ signedIn: true, states: pick(AUTHED) }] : []),
+].filter((g) => g.states.length);
+const states = groups.flatMap((g) => g.states);
 const browser = await chromium.launch();
 const problems = [];
 let checks = 0;
 for (const [width, height, label] of [[1440, 900, 'masaüstü'], [390, 844, 'mobil']]) {
-  for (const theme of ['dark', 'light']) {
+  for (const theme of ['dark', 'light']) for (const group of groups) {
     const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', locale: 'tr-TR' });
     await ctx.addInitScript((t) => { try { localStorage.setItem('bekofy-theme', t); } catch { /* yok */ } }, theme);
     const page = await ctx.newPage();
     const jsErrors = [];
     page.on('pageerror', (e) => jsErrors.push(e.message));
-    if (auth) await login(page);
-    for (const [name, path, act] of states) {
+    if (group.signedIn) await login(page);
+    let previous = 'giriş';
+    for (const [name, path, act] of group.states) {
       const where = `${label} ${theme} | ${name}`;
       await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' });
+      // Oturumlu sayfa girişe yönlendirdiyse oturum düşmüştür: hangi durumdan sonra olduğu yazılır, yeniden girilir.
+      if (group.signedIn && new URL(page.url()).pathname === '/login') {
+        problems.push(`${where}: oturum düştü ("${previous}" durumundan sonra)`);
+        await login(page);
+        await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' });
+      }
+      previous = name;
       await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' });
-      try { if (act) await act(page); } catch (e) { problems.push(`${where}: etkileşim başarısız (${e.message.split('\n')[0]})`); continue; }
+      try {
+        if (act) await act(page);
+      } catch (e) {
+        const shot = `${process.env.TEMP ?? '/tmp'}/bekofy-check-${checks}-${Date.now()}.png`;
+        await page.screenshot({ path: shot }).catch(() => undefined);
+        problems.push(`${where}: etkileşim başarısız (${e.message.split('\n')[0]}) adres ${page.url()} görüntü ${shot}`);
+        continue;
+      }
       await page.waitForTimeout(150);
       await page.addScriptTag({ url: AXE_CDN });
       const axe = await page.evaluate(async (tags) => (await window.axe.run(document, { runOnly: { type: 'tag', values: tags } })).violations

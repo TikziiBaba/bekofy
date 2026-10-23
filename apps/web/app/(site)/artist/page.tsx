@@ -68,7 +68,7 @@ export default async function ArtistPage() {
 
         <Panel id="songs" title="Şarkıların">
           {stats && stats.length ? (
-            <div className="-mx-2 overflow-x-auto">
+            <div className="-mx-2 overflow-x-auto" tabIndex={0} role="region" aria-label="Şarkıların tablosu">
               <table className="w-full min-w-[calc(var(--size-layout-panel)*1.5)] border-collapse text-start type-body-sm">
                 <thead className="text-fg-muted">
                   <tr className="border-b border-line">

@@ -188,7 +188,7 @@ export function YouTubeImport() {
             {(p) => (
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Input {...p} ref={urlRef} type="url" inputMode="url" placeholder="https://www.youtube.com/watch?v=..." value={url} onChange={(e) => setUrl(e.target.value)} className="sm:flex-1" />
-                <Button type="submit" loading={state.phase === 'fetching'} disabled={server.status === 'offline'}>
+                <Button type="submit" loading={state.phase === 'fetching'}>
                   {state.phase === 'fetching' ? null : <Search aria-hidden="true" />}
                   {state.phase === 'fetching' ? 'Bilgiler getiriliyor' : 'Bilgileri getir'}
                 </Button>

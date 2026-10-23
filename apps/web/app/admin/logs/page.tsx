@@ -16,7 +16,7 @@ export default async function LogsPage() {
       <PageHead title="Giriş kayıtları" description="Son 100 giriş. IP adresi ve konum tutulmaz." />
       {logs === null ? <p className="text-danger-fg">Kayıtlar alınamadı. Sayfayı yenile.</p> : null}
       {logs?.length ? (
-        <div className="glass-panel overflow-x-auto rounded-ui-xl">
+        <div className="glass-panel overflow-x-auto rounded-ui-xl" tabIndex={0} role="region" aria-label="Giriş kayıtları tablosu">
           <table className="w-full min-w-[calc(var(--size-layout-panel)*2)] border-collapse type-body-sm">
             <caption className="sr-only">Son girişler, yeniden eskiye</caption>
             <thead className="text-fg-muted">

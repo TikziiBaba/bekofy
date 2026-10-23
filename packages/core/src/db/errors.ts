@@ -50,6 +50,15 @@ export function likeExact(input: string): string {
   return input.replace(/[\\%_]/g, '\\$&');
 }
 
+/**
+ * Tek sütunda "içerir" araması için ilike deseni. Metin olduğu gibi aranır (kullanıcı adındaki _ ve . korunur),
+ * yalnızca LIKE jokerleri kaçışlanır. .or() içinde kullanılmaz; orada searchTerm gerekir.
+ */
+export function containsPattern(input: string): string | null {
+  const v = input.trim().slice(0, 64);
+  return v ? `%${likeExact(v)}%` : null;
+}
+
 /** Arama metnini PostgREST filtresi için güvenli hale getirir (joker ve ayraç karakterleri atılır). */
 export function searchTerm(input: string): string {
   return input.replace(/[%_*\\,()".:]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 64);

@@ -787,7 +787,13 @@ export type Database = {
           uploaded_by?: string | null;
         };
         Relationships: [
-
+          {
+            foreignKeyName: "songs_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
         ];
       };
       user_access_logs: {
@@ -868,6 +874,8 @@ export type Database = {
     Views: { [_ in never]: never };
     Functions: {
       artist_song_stats: { Args: Record<PropertyKey, never>; Returns: unknown };
+      can_edit_playlist: { Args: { p_playlist_id: string }; Returns: unknown };
+      can_view_playlist: { Args: { p_playlist_id: string }; Returns: unknown };
       is_admin: { Args: Record<PropertyKey, never>; Returns: unknown };
       review_artist_request: { Args: { p_approve: boolean; p_request_id: string }; Returns: unknown };
       submit_artist_song: { Args: { p_album: string; p_cover_url: string; p_duration: number; p_file_path: string; p_genre: string; p_title: string }; Returns: unknown };

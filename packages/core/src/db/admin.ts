@@ -2,7 +2,7 @@
 // Kullanıcı hesabını tamamen silmek service_role gerektirir, istemciden yapılamaz.
 
 import type { BekofyClient } from '../client';
-import { check, must, searchTerm } from './errors';
+import { check, containsPattern, must } from './errors';
 import { PUBLIC_PROFILE_FIELDS, type Role } from './profiles';
 
 export async function dashboardStats(sb: BekofyClient) {
@@ -23,8 +23,8 @@ export async function dashboardStats(sb: BekofyClient) {
 
 export async function listUsers(sb: BekofyClient, { search = '', limit = 50, offset = 0 } = {}) {
   let q = sb.from('profiles').select(`${PUBLIC_PROFILE_FIELDS}, is_banned, last_activity`).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
-  const term = searchTerm(search);
-  if (term) q = q.ilike('username', `%${term}%`);
+  const pattern = containsPattern(search.toLocaleLowerCase('tr-TR'));
+  if (pattern) q = q.ilike('username', pattern);
   return must(await q, 'Kullanıcılar alınamadı');
 }
 

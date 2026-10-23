@@ -59,7 +59,9 @@ const tables = Object.keys(defs).sort().map((table) => {
     // veritabanınca üretilir sayılır (eklerken verilmez).
     const identity = p.type === 'integer' && p.default === undefined && (p.description ?? '').includes('<pk/>');
     const hasDefault = p.default !== undefined || identity;
-    const notNull = required.has(col) || hasDefault;
+    // Varsayılanı olan sütun pratikte hep doludur; auth.uid() ise service role eklemelerinde null verir.
+    const nullableDefault = /auth\.uid\(\)/.test(String(p.default ?? ''));
+    const notNull = required.has(col) || (hasDefault && !nullableDefault);
     row.push(`          ${prop(col)}: ${t}${notNull ? '' : ' | null'};`);
     insert.push(`          ${prop(col)}${required.has(col) && !hasDefault ? '' : '?'}: ${t}${notNull ? '' : ' | null'};`);
     update.push(`          ${prop(col)}?: ${t}${notNull ? '' : ' | null'};`);

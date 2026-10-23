@@ -1,5 +1,6 @@
 export { cn } from './cn';
-export { Button, buttonVariants, type ButtonProps } from './button';
+export { Button, type ButtonProps } from './button';
+export { buttonVariants } from './button-variants';
 export { IconButton, iconButtonVariants, type IconButtonProps } from './icon-button';
 export { Input, Textarea, Select } from './input';
 export { Field, type FieldProps, type FieldControlProps } from './field';

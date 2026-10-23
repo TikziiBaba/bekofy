@@ -2,7 +2,7 @@
 
 import type { BekofyClient } from '../client';
 import type { Tables, TablesUpdate } from './database.types';
-import { likeExact, must, searchTerm } from './errors';
+import { containsPattern, likeExact, must } from './errors';
 
 export type Profile = Tables<'profiles'>;
 export type Role = 'user' | 'premium' | 'artist' | 'admin' | 'yetkili';
@@ -38,9 +38,9 @@ export async function updateProfile(sb: BekofyClient, id: string, patch: Profile
 }
 
 export async function searchProfiles(sb: BekofyClient, query: string, { excludeId, limit = 20 }: { excludeId?: string; limit?: number } = {}): Promise<PublicProfile[]> {
-  const term = searchTerm(query);
-  if (!term) return [];
-  let q = sb.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('is_banned', false).ilike('username', `%${term}%`).limit(limit);
+  const pattern = containsPattern(normalizeUsername(query));
+  if (!pattern) return [];
+  let q = sb.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('is_banned', false).ilike('username', pattern).limit(limit);
   if (excludeId) q = q.neq('id', excludeId);
   return must(await q, 'Kullanıcılar aranamadı');
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { artistSongProblem, audioProblem, MAX_AUDIO_BYTES } from './artist-songs';
-import { DataError, likeExact, must, searchTerm, toDataError } from './errors';
+import { containsPattern, DataError, likeExact, must, searchTerm, toDataError } from './errors';
 import { formatJamCode, generateJamCode, JAM_CODE_ALPHABET, normalizeJamCode } from './jam';
 import { activeLineIndex, fetchLyrics, parseLrc, storedLyrics } from './lyrics';
 import { imageProblem } from './media';
@@ -22,6 +22,11 @@ describe('hatalar', () => {
     expect(searchTerm('  sezen,aksu)(%_*"  ')).toBe('sezen aksu');
     expect(searchTerm('title.eq.x')).toBe('title eq x');
     expect(searchTerm('a'.repeat(100)).length).toBe(64);
+  });
+  it('içerir araması: _ ve . korunur, jokerler kaçışlanır', () => {
+    expect(containsPattern(' e2e_user.x ')).toBe('%e2e\\_user.x%');
+    expect(containsPattern('100%')).toBe('%100\\%%');
+    expect(containsPattern('  ')).toBeNull();
   });
   it('tam eşleşmede LIKE jokerleri kaçışlanır', () => {
     expect(likeExact('a_b%c\\d')).toBe('a\\_b\\%c\\\\d');

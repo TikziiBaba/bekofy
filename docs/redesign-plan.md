@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0, 1, 2 ve 3 tamamlandı ve doğrulandı (dal: `redesign`); sırada Faz 4
+Tarih: 2026-10-22 · Durum: Faz 0-3 tamamlandı; Faz 4 (site) yapıldı ve doğrulandı, yayına alma adımları bekliyor (dal: `redesign`); sırada Faz 5
 
 ## Kararlar
 
@@ -135,11 +135,49 @@ Durum (2026-10-23):
 - Tanıtım + indirme: Windows kurulum dosyası GitHub Releases'tan, Android uygulaması, iOS daha sonra.
 - Hesap: giriş, kayıt, şifre sıfırlama, profil.
 - Premium: plan sayfası; ödeme sayfası PayTR'ye hazır iskelet olarak (kart formu yok).
-- Admin paneli: şarkılar (ekle / düzenle / sil, YouTube içe aktarma), kullanıcılar, premium talepleri, sanatçı başvuruları, rozetler, istatistikler.
+- Admin paneli: şarkılar (ekle / düzenle / sil, YouTube içe aktarma), kullanıcılar, sanatçı başvuruları, giriş kayıtları, istatistikler.
 - SEO: meta etiketleri, Open Graph, sitemap.
 
 Doğrulama: accuracy_report, axe, responsive, koyu + açık; Lighthouse; Vercel önizleme dağıtımı.
 Senden gereken: Vercel projesini bu repoya, kök klasörü `apps/web` olacak şekilde bağlamak (alan adı aynı kalır).
+
+Kararlar (2026-10-23): tek Premium plan (₺29,99/ay; öğrenci ve aile planı PayTR ile sonra); sanatçı paneli sitede;
+sanatçı dosyaları doğrudan R2'ye gider, ret olursa silinir (bu yüzden site sunucusu da R2 anahtarlarını Vercel'de tutar);
+e-posta doğrulaması açılacak ve SMTP bağlanacak. "Premium talepleri" tablosu yok: ödeme açılana kadar Premium admin
+panelinden elle verilir.
+
+Durum (2026-10-24):
+
+- Yapıldı: `apps/web` (Next.js 16 App Router, Tailwind v4, `@supabase/ssr`). Sayfalar: tanıtım ve indirme (GitHub son
+  sürümü saatte bir), giriş/kayıt (e-posta ve Google), şifre sıfırlama, hesap, Premium, ödeme iskeleti, sanatçı paneli,
+  admin (genel bakış, şarkılar, düzenleme, YouTube'dan ekleme, kullanıcılar, sanatçı başvuruları, giriş kayıtları),
+  sitemap, robots, 404. Eski adresler (`/dashboard`, `*.html`) yeni sayfalara yönlenir.
+- `packages/ui`: web ve masaüstünün ortak bileşenleri; Tailwind teması token'lardan gelir, hazır renk paleti kapalı.
+- Migration `20261024000000_artist_uploads.sql` uygulandı: `songs.uploaded_by`, dosya yolu tekilliği, şarkıyı doğrudan
+  yalnızca admin ekler, sanatçı `submit_artist_song` ile ekler (hep onay bekler), `artist_song_stats`.
+- Bulunan ve düzeltilen hatalar: kullanıcı adı aramasında `_` ve `.` boşluğa dönüşüyordu (alt çizgili adlar
+  bulunamıyordu); sunucu bileşenindeki düğmeler sayfayı hataya düşürüyordu; dar ekranda üst bant ve kartlar taşıyordu.
+- Doğrulama:
+  - Uçtan uca `node apps/web/scripts/e2e.mjs`: geçici hesaplarla kayıt, profil, sanatçı başvurusu, admin onayı,
+    tarayıcıdan R2'ye yükleme (imzası bozulan yükleme reddedilir), ret (R2 dosyaları silinir), onay, düzenleme, silme,
+    Premium verme, yetkisiz erişim, arayüzden YouTube içe aktarma. Sonunda her şey silinir ve ayrıca doğrulanır.
+  - Erişilebilirlik `node apps/web/scripts/check-auth.mjs`: 24 sayfa durumu x koyu/açık x masaüstü/mobil = 96 kontrol;
+    axe 0 ihlal, metin ve üzerine gelme/odak durumlarında kontrast, odak halkası, 280/320/414 piksel taşma, JS hatası.
+  - `npm test -w @bekofy/web`, `npm test -w @bekofy/core`, `tsc`, `next build`, emoji ve sabit değer denetimleri.
+- Bekleyen (senden):
+  1. R2 CORS (Cloudflare > R2 > bekofy-music > Settings > CORS Policy). Testte tarayıcı CORS denetimi kapatılarak
+     denendi; gerçek kullanıcılar için bu ayar şart:
+     `[{"AllowedOrigins":["https://bekofy.bekirr.dev","http://localhost:3000"],"AllowedMethods":["PUT"],"AllowedHeaders":["content-type","cache-control"],"MaxAgeSeconds":3600}]`
+  2. Vercel: projeyi `TikziiBaba/bekofy` reposuna, kök klasör `apps/web` olarak bağla. Ortam değişkenleri:
+     `NEXT_PUBLIC_SITE_URL`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`,
+     `R2_PUBLIC_DOMAIN` (bkz. `apps/web/.env.example`).
+  3. Supabase > Authentication > URL Configuration: Site URL `https://bekofy.bekirr.dev`; Redirect URLs
+     `https://bekofy.bekirr.dev/auth/callback` ve `http://localhost:3000/auth/callback`.
+  4. Supabase > Authentication: "Confirm email" açık; SMTP (ör. Resend) bağlı. E-posta şablonlarında bağlantı
+     başka cihazda da çalışsın diye: kayıt `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`,
+     şifre sıfırlama `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password`.
+- Not: tanıtım sayfası yeni tasarımı anlatıyor; indirilen 1.4.1 hâlâ eski tasarım. Site, Faz 5'teki masaüstü
+  sürümüyle birlikte yayına alınmalı.
 
 ### Faz 5: Masaüstü (`apps/desktop`)
 
