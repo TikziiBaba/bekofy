@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-22 · Durum: Faz 0, 1 ve 2 tamamlandı (dal: `redesign`); eski tabloların RLS incelemesi bekliyor, sırada Faz 3
+Tarih: 2026-10-22 · Durum: Faz 0, 1 ve 2 tamamlandı (dal: `redesign`); güvenlik migration'ı uygulanmayı bekliyor, sırada Faz 3
 
 ## Kararlar
 
@@ -97,7 +97,8 @@ Durum (2026-10-23):
 - Veri modeli kararları: tek yönlü takip (`follows`; `friendships`'teki kayıtlar taşınır, eski uygulama kalkana kadar tablo silinmez), şarkılar sanatçılara `song_artists` bağ tablosuyla bağlanır (bir şarkının birden çok sanatçısı olabilir), sanatçı takibi `artist_follows`, yeni tablolar `listening_history`, `artist_requests` (onay `review_artist_request` fonksiyonuyla tek işlemde), `user_access_logs` (bilinçli olarak IP ve konum yok). Premium talebi tablosu eklenmedi; premium Faz 7'de PayTR ile gelir.
 - Premium iki yerde tutuluyor (`profiles.role = 'premium'` ve `profiles.is_premium`); şimdilik `isPremium()` ikisine de bakar, Faz 7'de tek alana indirilir.
 - Migration uygulandı ve doğrulandı: `friendships`'teki 5 kaydın 4'ü `follows`'a taşındı (atlanan kayıt bir kullanıcının kendini takibiydi, bilinçli dışarıda), `song_artists` 13 bağ (12 şarkının hepsi bağlı), yeni tablolar için sorgu modülleri eklendi (artists, history, artist-requests, access-logs). Canlı testler oturumsuz istemcinin yeni tablolara yazamadığını ve onay fonksiyonunu çağıramadığını doğruluyor. Birim testleri 85, canlı testler 14.
-- Bekleyen: `supabase/checks/rls_audit.sql` çıktısıyla mevcut (eski) tabloların ve depolama alanlarının RLS politikaları incelenecek.
+- RLS denetimi yapıldı (2026-10-23). Kritik bulgular: kullanıcı kendi rolünü `admin` yapabiliyordu; Jam tablolarında RLS kapalıydı (canlı testle doğrulandı). Yüksek: `playlist_songs` politikasındaki koşul hatası herhangi bir düzenleyiciye tüm listeleri açıyordu; `avatars` alanında başkasının dosyasının üstüne yazılabiliyordu. Ayrıca gizli listeler herkese açıktı, sanatçı yüklemeleri onaysız yayına giriyordu, `update_user_badge_progress` anon'a açıktı (gövdesi de var olmayan `play_count` sütununu okuduğu için hiç çalışmıyor), `media` depolama alanı hiç yok (eski kodun bu alana yaptığı yüklemeler çalışmıyor).
+- Bekleyen: `supabase/migrations/20261023010000_security_hardening.sql` uygulanacak (geri alma: `supabase/rollbacks/`). Ardından `BEKOFY_LIVE=1 npm test -w @bekofy/core` ile Jam RLS'si ve rozet izni doğrulanır; `supabase/checks/rls_audit.sql` tekrar çalıştırılır.
 - Not: kökteki `.env` şablon halindeydi; R2 anahtarları boş. Faz 3'teki yerel içe aktarma sunucusu için doldurulması gerekiyor.
 
 ### Faz 3: YouTube içe aktarma (yerel sunucu)
