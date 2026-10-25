@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-25 · Durum: Faz 0-3 tamamlandı; Faz 4 (site) yayında, Faz 6 (mobil) APK'si yayında; Faz 5 (masaüstü) sürümü Supabase ayarını bekliyor (dal: `redesign`); sırada Faz 7/8
+Tarih: 2026-10-25 · Durum: Faz 0-6 tamamlandı ve yayında (site, masaüstü 2.0.0, Android APK; `redesign` main'e birleşti); sırada Faz 7/8
 
 ## Kararlar
 
@@ -183,8 +183,8 @@ Durum (2026-10-24):
      şablonlarında bağlantı başka cihazda da çalışsın diye: kayıt
      `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`, şifre sıfırlama
      `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password`.
-- Not: tanıtım sayfası yeni tasarımı anlatıyor; indirilen 1.4.1 hâlâ eski tasarım. Masaüstü 2.0.0 sürümü Supabase
-  ayarı (madde 1) yapıldıktan sonra yayınlanmalı, yoksa güncellenen kullanıcılar Google ile giremez.
+- 2026-10-25: `redesign` main'e birleşti (fast-forward); canlı site artık main'den kendiliğinden dağıtılıyor.
+  `bekofy://auth/callback` yönlendirmesinin izinli olduğu mobilde Google girişiyle görüldü; Site URL denetlenmedi.
 
 ### Faz 5: Masaüstü (`apps/desktop`)
 
@@ -227,8 +227,11 @@ Durum (2026-10-23):
   1. Discord Developer Portal'da "Bekofy" adlı uygulama aç; Application ID'yi ver (`src/main/config.ts`). Rich Presence >
      Art Assets'e `bekofy` adlı logo yükle. Verilene kadar Discord durumu kapalı.
   2. Supabase > Authentication > URL Configuration > Redirect URLs: `bekofy://auth/callback` (masaüstünde Google girişi).
-  3. Sürüm yayınlamak için yeni bir GitHub token'ı (eskisi açığa çıktı) ve `npm run release -w @bekofy/desktop`.
   Kurulum dosyası imzasız; Windows SmartScreen uyarısı eskisi gibi görünür.
+- Yayın (2026-10-25): GitHub sürümü `v2.0.0` (son sürüm, etiket main'deki `6b24e4f`): `Bekofy.Setup.2.0.0.exe`,
+  blockmap, `latest.yml`, `Bekofy-2.0.0.apk`. Eski uygulama güncellemeyi son sürümün `latest.yml`'sinden okur; 1.x
+  kurulumları bir sonraki açılışta 2.0.0'ı indirir. `GH_TOKEN=$(gh auth token) npm run release -w @bekofy/desktop`
+  taslak açar; electron-builder aynı etiketle iki taslak açabiliyor, yayından önce tek taslakta birleştirilmeli.
 
 ### Faz 6: Mobil (`apps/mobile`, Expo)
 
@@ -244,8 +247,8 @@ Kararlar (2026-10-23):
 - Paket adı `com.bekofy.app`; şimdilik yerel APK, EAS ve Play Store sonra.
 - Oynatıcı: expo-audio `AudioPlaylist` (prototiple seçildi): arka planda çalma, bildirim ve kilit ekranı denetimleri
   (önceki/sonraki dahil) yerel listede; uygulama `trackChanged` olayıyla eşitlenir.
-- APK, GitHub'daki son sürüme (şimdilik v1.4.1, etiket `ota`) ek dosya olarak yüklenir; site Android düğmesini oradan
-  bağlar. Yeni "son sürüm" açılmaz, yoksa eski masaüstü uygulamalarının güncelleme denetimi ve Windows düğmesi bozulur.
+- APK, GitHub'daki son sürüme (2.0.0'dan beri `v2.0.0`) ek dosya olarak yüklenir; site Android düğmesini oradan
+  bağlar. Yalnızca APK için yeni "son sürüm" açılmaz, yoksa masaüstünün güncelleme denetimi ve Windows düğmesi bozulur.
 - Yayın anahtarı kalıcı: `%USERPROFILE%\.bekofy\bekofy-release.jks`, parolası kökteki `.env`'de
   (`BEKOFY_ANDROID_*`). Anahtar kaybolursa kurulu uygulamalar güncellenemez; dosya ve parola yedeklenmeli.
 
@@ -278,6 +281,8 @@ Durum: yapıldı.
   sitedeki Android düğmesi onu bağlıyor. Yayın derlemesi önce Windows yol sınırına takılmıştı; config plugin artık
   sınırı yerel kodlu tüm kütüphanelere uyguluyor. Aynı yayın ayarlarıyla x86_64 derlemesi emülatörde açıldı; arm APK
   emülatörün ARM çevirisinde açılmıyor (`libreactnative.so`), gerçek telefonda denenmedi.
+- Düzeltme (2026-10-25): Android'de Google girişi "Unmatched Route" ekranında kalıyordu; `auth/callback` ekranı
+  eklendi. Yeni APK `ota` ve `v2.0.0` sürümlerinde.
 - Bekleyen (senden):
   1. Telefonda eski Bekofy (WebView) uygulaması varsa önce kaldırılmalı: imza farklı, üzerine kurulmaz.
   2. Supabase Redirect URLs'e `bekofy://auth/callback` (mobilde Google girişi için de gerekli; Faz 4 madde 1).
