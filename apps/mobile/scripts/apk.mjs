@@ -18,7 +18,13 @@ execFileSync(gradlew, ['assembleRelease', '-PreactNativeArchitectures=armeabi-v7
   cwd: join(APP, 'android'),
   stdio: 'inherit',
   shell: process.platform === 'win32',
-  env: { ...process.env, ...env, JAVA_HOME: process.env.JAVA_HOME ?? 'C:/Program Files/Android/Android Studio/jbr' },
+  env: {
+    ...process.env,
+    ...env,
+    JAVA_HOME: process.env.JAVA_HOME ?? 'C:/Program Files/Android/Android Studio/jbr',
+    // prebuild android/local.properties'i siler; SDK'yı Android Studio'nun varsayılan yerinden al.
+    ANDROID_HOME: process.env.ANDROID_HOME ?? join(process.env.LOCALAPPDATA ?? '', 'Android/Sdk'),
+  },
 });
 
 const out = join(APP, 'android/app/build/outputs/apk/release/app-release.apk');
