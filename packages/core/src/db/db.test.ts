@@ -3,7 +3,8 @@ import { artistSongProblem, audioProblem, MAX_AUDIO_BYTES } from './artist-songs
 import { containsPattern, DataError, likeExact, must, searchTerm, toDataError } from './errors';
 import { formatJamCode, generateJamCode, JAM_CODE_ALPHABET, normalizeJamCode } from './jam';
 import { activeLineIndex, fetchLyrics, parseLrc, storedLyrics } from './lyrics';
-import { imageProblem } from './media';
+import type { BekofyClient } from '../client';
+import { imageProblem, uploadAvatar } from './media';
 import { isPremium, normalizeUsername, USERNAME_RULE } from './profiles';
 
 describe('hatalar', () => {
@@ -117,6 +118,20 @@ describe('görsel denetimi', () => {
     expect(imageProblem({ type: 'image/png', size: 1000 })).toBeNull();
     expect(imageProblem({ type: 'image/gif', size: 1000 })).toContain('JPG, PNG ya da WebP');
     expect(imageProblem({ type: 'image/jpeg', size: 6 * 1024 * 1024 })).toContain('5 MB');
+  });
+  it('Blob olduğu gibi, ham bayt .bytes olarak yüklenir', async () => {
+    const bodies: unknown[] = [];
+    const bucket = {
+      upload: async (_path: string, body: unknown) => (bodies.push(body), { error: null }),
+      getPublicUrl: () => ({ data: { publicUrl: 'https://x/a.png' } }),
+    };
+    const sb = { storage: { from: () => bucket } } as unknown as BekofyClient;
+    // Güncel Blob'un bytes() metodu var: ham bayt nesnesiyle karıştırılmamalı.
+    const blob = new Blob([new Uint8Array(10)], { type: 'image/png' });
+    const bytes = new ArrayBuffer(10);
+    await uploadAvatar(sb, 'u', blob);
+    await uploadAvatar(sb, 'u', { type: 'image/png', size: 10, bytes });
+    expect(bodies).toEqual([blob, bytes]);
   });
 });
 

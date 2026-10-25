@@ -28,7 +28,8 @@ export function imageProblem(file: { type: string; size: number }): string | nul
 async function upload(sb: BekofyClient, path: string, file: ImageFile): Promise<string> {
   const problem = imageProblem(file);
   if (problem) throw new DataError(problem);
-  const body = 'bytes' in file ? file.bytes : file;
+  // 'bytes' in file yetmez: güncel tarayıcılarda Blob'un da bytes() metodu var.
+  const body = file instanceof Blob ? file : file.bytes;
   const res = await sb.storage.from('avatars').upload(path, body, { contentType: file.type, upsert: true, cacheControl: '31536000' });
   if (res.error) throw new DataError('Görsel yüklenemedi. Tekrar dene.', undefined, res.error);
   return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
