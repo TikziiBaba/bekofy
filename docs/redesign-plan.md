@@ -1,6 +1,6 @@
 # Bekofy Yeniden Tasarım Planı
 
-Tarih: 2026-10-23 · Durum: Faz 0-3 tamamlandı; Faz 4 (site), Faz 5 (masaüstü) ve Faz 6 (mobil) yapıldı, yayına alma adımları bekliyor (dal: `redesign`); sırada Faz 7/8
+Tarih: 2026-10-25 · Durum: Faz 0-3 tamamlandı; Faz 4 (site) yayında, Faz 6 (mobil) APK'si yayında; Faz 5 (masaüstü) sürümü Supabase ayarını bekliyor (dal: `redesign`); sırada Faz 7/8
 
 ## Kararlar
 
@@ -164,20 +164,27 @@ Durum (2026-10-24):
   - Erişilebilirlik `node apps/web/scripts/check-auth.mjs`: 24 sayfa durumu x koyu/açık x masaüstü/mobil = 96 kontrol;
     axe 0 ihlal, metin ve üzerine gelme/odak durumlarında kontrast, odak halkası, 280/320/414 piksel taşma, JS hatası.
   - `npm test -w @bekofy/web`, `npm test -w @bekofy/core`, `tsc`, `next build`, emoji ve sabit değer denetimleri.
+- Yayın (2026-10-25): `https://bekofy.bekirr.dev` yeni sitede. Vercel projesi `bekofy`: repo `TikziiBaba/bekofy`,
+  kök `apps/web`, framework Next.js, ortam değişkenleri production + preview. Production dalı Vercel'de `main`;
+  site şimdilik `redesign` dalında olduğu için canlı dağıtım `redesign` commit'inden elle başlatıldı. `redesign`'a
+  gönderilenler önizleme olur; `main`'e birleşince canlı dağıtım kendiliğinden olur.
+  - Yayından önce bulunan hata: Faz 6'daki görsel yükleme değişikliği site derlemesini kırıyordu ve web ile
+    masaüstünde dosya yerine `Blob.bytes` metodunu yüklemeye çalışıyordu (düzeltildi, testi var).
+  - R2 CORS ayarı yapılmış (siteden PUT, `content-type` ve `cache-control` başlıkları izinli; denendi).
+  - Canlı doğrulama: `check.mjs` 40/40 oturumsuz, `check-auth.mjs` 96/96 oturumlu (geçici admin hesabı, sonra
+    silindi); eski adresler yönleniyor; indirme bağlantıları doğru. Canlıda `networkidle` beklemesi bitmez (korumalı
+    sayfaların önceden yüklemesi girişe yönlenir, Next yanıtı sonuna kadar okumaz); denetim `load` + 2,5 sn ile koşuldu.
 - Bekleyen (senden):
-  1. R2 CORS (Cloudflare > R2 > bekofy-music > Settings > CORS Policy). Testte tarayıcı CORS denetimi kapatılarak
-     denendi; gerçek kullanıcılar için bu ayar şart:
-     `[{"AllowedOrigins":["https://bekofy.bekirr.dev","http://localhost:3000"],"AllowedMethods":["PUT"],"AllowedHeaders":["content-type","cache-control"],"MaxAgeSeconds":3600}]`
-  2. Vercel: projeyi `TikziiBaba/bekofy` reposuna, kök klasör `apps/web` olarak bağla. Ortam değişkenleri:
-     `NEXT_PUBLIC_SITE_URL`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`,
-     `R2_PUBLIC_DOMAIN` (bkz. `apps/web/.env.example`).
-  3. Supabase > Authentication > URL Configuration: Site URL `https://bekofy.bekirr.dev`; Redirect URLs
-     `https://bekofy.bekirr.dev/auth/callback` ve `http://localhost:3000/auth/callback`.
-  4. Supabase > Authentication: "Confirm email" açık; SMTP (ör. Resend) bağlı. E-posta şablonlarında bağlantı
-     başka cihazda da çalışsın diye: kayıt `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`,
-     şifre sıfırlama `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password`.
-- Not: tanıtım sayfası yeni tasarımı anlatıyor; indirilen 1.4.1 hâlâ eski tasarım. Site, Faz 5'teki masaüstü
-  sürümüyle birlikte yayına alınmalı.
+  1. Supabase > Authentication > URL Configuration: Site URL şu an `http://localhost:3000`. Olması gereken:
+     Site URL `https://bekofy.bekirr.dev`; Redirect URLs `https://bekofy.bekirr.dev/auth/callback`,
+     `http://localhost:3000/auth/callback`, `bekofy://auth/callback`. Bu yapılana kadar sitede, masaüstünde ve
+     mobilde Google ile giriş ve şifre sıfırlama bağlantıları localhost'a gider (e-posta + şifre ile giriş çalışır).
+  2. Supabase > Authentication: "Confirm email" şu an kapalı. Açılacaksa önce SMTP (ör. Resend) bağlanmalı. E-posta
+     şablonlarında bağlantı başka cihazda da çalışsın diye: kayıt
+     `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`, şifre sıfırlama
+     `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password`.
+- Not: tanıtım sayfası yeni tasarımı anlatıyor; indirilen 1.4.1 hâlâ eski tasarım. Masaüstü 2.0.0 sürümü Supabase
+  ayarı (madde 1) yapıldıktan sonra yayınlanmalı, yoksa güncellenen kullanıcılar Google ile giremez.
 
 ### Faz 5: Masaüstü (`apps/desktop`)
 
@@ -267,9 +274,13 @@ Durum: yapıldı.
   - `node apps/mobile/scripts/e2e.mjs` yazıldı (geçici iki hesap, sonunda silinir) ama tam geçmedi: uiautomator, çalma
     sırasında ekranı okuyamıyor. Bu yüzden yeni eklenen kaydırma, Oluştur ve düzenleme akışlarının testi koşulmadı.
   - Tip denetimi temiz; renk eşleşmelerinin kontrastı iki temada ölçüldü.
+- Yayın (2026-10-25): `Bekofy-2.0.0.apk` (arm64 + arm32, 58 MB, kalıcı anahtarla imzalı) `ota` sürümüne yüklendi;
+  sitedeki Android düğmesi onu bağlıyor. Yayın derlemesi önce Windows yol sınırına takılmıştı; config plugin artık
+  sınırı yerel kodlu tüm kütüphanelere uyguluyor. Aynı yayın ayarlarıyla x86_64 derlemesi emülatörde açıldı; arm APK
+  emülatörün ARM çevirisinde açılmıyor (`libreactnative.so`), gerçek telefonda denenmedi.
 - Bekleyen (senden):
   1. Telefonda eski Bekofy (WebView) uygulaması varsa önce kaldırılmalı: imza farklı, üzerine kurulmaz.
-  2. Supabase Redirect URLs'e `bekofy://auth/callback` (mobilde Google girişi için de gerekli).
+  2. Supabase Redirect URLs'e `bekofy://auth/callback` (mobilde Google girişi için de gerekli; Faz 4 madde 1).
   3. Yayın anahtarını (`.bekofy` klasörü ve `.env`'deki parola) güvenli bir yere yedekle.
 - Sonra: eski `android/` WebView projesinin silinmesi Faz 8'e kaldı.
 
