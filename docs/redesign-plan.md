@@ -283,6 +283,18 @@ Durum: yapıldı.
   emülatörün ARM çevirisinde açılmıyor (`libreactnative.so`), gerçek telefonda denenmedi.
 - Düzeltme (2026-10-25): Android'de Google girişi "Unmatched Route" ekranında kalıyordu; `auth/callback` ekranı
   eklendi. Yeni APK `ota` ve `v2.0.0` sürümlerinde.
+- Tasarım geçişi ve düzeltmeler (2026-10-26), APK `ota` ve `v2.0.0` sürümlerinde (sürüm adı 2.0.0 kaldı):
+  - Her ekranda kaydırınca dolan üst çubuk (içerik artık durum çubuğunun altına girmiyor), sönen büyük başlık,
+    yapışkan arama kutusu ve süzgeçler, paralaks ortam ışığı (prototipteki radyal ışıklar), koleksiyon sayfalarında
+    kapaktan renk ve çubukta çal düğmesi, yaslanan raflar, kapak gölgeleri, alt çubuğa yumuşak geçiş, kapak renkli
+    mini oynatıcı, akıcı ilerleme çubukları, şimdi çalıyor açılış sırası, sözlerde yumuşak satır geçişi.
+  - Şarkı satırlarında dururken görünen yeşil/beyaz şeritler giderildi (kaydırma eyleminin iç boşluğu).
+  - Google girişi tamamlanmıyordu: istemci "implicit" akıştaydı, dönüşte `?code=` gelmiyordu. Çekirdek istemci PKCE'ye
+    geçti (masaüstünü de düzeltir, yeni masaüstü sürümüyle). Google hesabıyla gerçek giriş henüz denenmedi.
+  - Jam: sahip çalarken Jam başlatınca şarkı veritabanına yazılmıyordu; çal/duraklat/sar olayları şarkıyı taşımıyordu,
+    şarkısı olmayan katılımcı onları yok sayıyordu. İkisi de düzeldi (masaüstü Jam kodu da). Sahip tarafı emülatörde
+    yayın ve veritabanı izlenerek doğrulandı; iki cihazlı deneme yapılmadı.
+  - Bilinen: Jam durumu bellekte; sahibin uygulaması kapanırsa oturum sahipsiz kalır.
 - Bekleyen (senden):
   1. Telefonda eski Bekofy (WebView) uygulaması varsa önce kaldırılmalı: imza farklı, üzerine kurulmaz.
   2. Supabase Redirect URLs'e `bekofy://auth/callback` (mobilde Google girişi için de gerekli; Faz 4 madde 1).
