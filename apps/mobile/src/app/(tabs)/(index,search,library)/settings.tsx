@@ -6,7 +6,6 @@ import { ExternalLink, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucid
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { Alert, Pressable, Switch, View } from 'react-native';
 import { Avatar } from '@/components/avatar';
-import { PageTitle } from '@/components/blocks';
 import { Screen, Section } from '@/components/screen';
 import { Button, T } from '@/components/ui';
 import { useOffline } from '@/lib/offline';
@@ -51,8 +50,7 @@ export default function Settings() {
   const open = (path: string) => void WebBrowser.openBrowserAsync(`${SITE}${path}`);
 
   return (
-    <Screen back>
-      <PageTitle>Ayarlar</PageTitle>
+    <Screen back largeTitle="Ayarlar">
 
       <Section title="Görünüm">
         <View accessibilityRole="radiogroup" accessibilityLabel="Tema" style={{ flexDirection: 'row', gap: t.space[2] }}>

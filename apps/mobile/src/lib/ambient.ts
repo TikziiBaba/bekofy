@@ -4,7 +4,7 @@
 
 import { deriveAmbient, seedFromPixels } from '@bekofy/tokens';
 import { Image } from 'expo-image';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { thumbHashToRGBA } from 'thumbhash';
 import { player } from './player';
 import { getSetting, subscribeSettings } from './settings';
@@ -58,4 +58,21 @@ export function useCoverAmbient(mode: 'dark' | 'light'): { 1: string; 2: string;
     () => seed,
   );
   return s ? deriveAmbient(s, mode).color.ambient : null;
+}
+
+/** Bir koleksiyonun (liste, albüm, sanatçı) kendi kapağından ortam renkleri; ayar kapalıysa ya da kapak yoksa null. */
+export function useCoverTint(url: string | null | undefined, mode: 'dark' | 'light'): { 1: string; 2: string; 3: string } | null {
+  const enabled = useSyncExternalStore(subscribeSettings, () => getSetting('coverColor'));
+  const [s, setS] = useState<string | null>(() => (url ? (seeds.get(url) ?? null) : null));
+  useEffect(() => {
+    if (!url || !enabled) return setS(null);
+    let live = true;
+    void seedFor(url).then((v) => {
+      if (live) setS(v);
+    });
+    return () => {
+      live = false;
+    };
+  }, [url, enabled]);
+  return useMemo(() => (enabled && s ? deriveAmbient(s, mode).color.ambient : null), [enabled, s, mode]);
 }

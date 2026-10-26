@@ -52,6 +52,7 @@ export function SwipeRow({ left, right, children }: { left?: SwipeAction; right?
 
   const row = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   // Renkli şerit yalnızca açılan boşluğu doldurur; satırın kendisi saydam kalır (arka plan ışığı görünür).
+  // Şeridin iç boşluğu yok: boşluk genişliği sıfırın altına indirmez, şerit dururken de ince bir çizgi gibi görünürdü.
   const leftBg = useAnimatedStyle(() => ({ width: Math.max(0, x.value) }));
   const rightBg = useAnimatedStyle(() => ({ width: Math.max(0, -x.value) }));
   const leftIcon = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(x.value, [0, THRESHOLD, THRESHOLD + 1], [0.6, 1, 1.2], 'clamp') }] }));
@@ -60,15 +61,15 @@ export function SwipeRow({ left, right, children }: { left?: SwipeAction; right?
   return (
     <View style={{ borderRadius: t.radius.md, overflow: 'hidden' }}>
       {left ? (
-        <Animated.View importantForAccessibility="no-hide-descendants" style={[styles.bg, { left: 0, justifyContent: 'flex-start', paddingLeft: t.space[5], backgroundColor: t.c.accent.default }, leftBg]}>
-          <Animated.View style={leftIcon}>
+        <Animated.View importantForAccessibility="no-hide-descendants" style={[styles.bg, { left: 0, backgroundColor: t.c.accent.default }, leftBg]}>
+          <Animated.View style={[styles.icon, { left: t.space[5] }, leftIcon]}>
             <left.icon color={t.c.accent.on} size={t.size.icon.md} />
           </Animated.View>
         </Animated.View>
       ) : null}
       {right ? (
-        <Animated.View importantForAccessibility="no-hide-descendants" style={[styles.bg, { right: 0, justifyContent: 'flex-end', paddingRight: t.space[5], backgroundColor: t.c.surface.inverse }, rightBg]}>
-          <Animated.View style={rightIcon}>
+        <Animated.View importantForAccessibility="no-hide-descendants" style={[styles.bg, { right: 0, backgroundColor: t.c.surface.inverse }, rightBg]}>
+          <Animated.View style={[styles.icon, { right: t.space[5] }, rightIcon]}>
             <right.icon color={t.c.text.inverse} size={t.size.icon.md} />
           </Animated.View>
         </Animated.View>
@@ -80,4 +81,7 @@ export function SwipeRow({ left, right, children }: { left?: SwipeAction; right?
   );
 }
 
-const styles = StyleSheet.create({ bg: { position: 'absolute', top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' } });
+const styles = StyleSheet.create({
+  bg: { position: 'absolute', top: 0, bottom: 0, overflow: 'hidden' },
+  icon: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
+});

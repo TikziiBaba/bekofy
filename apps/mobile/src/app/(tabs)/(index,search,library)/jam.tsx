@@ -5,7 +5,6 @@ import { Share2 } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import { Alert, Share, type TextInputInstance, View } from 'react-native';
 import { Avatar } from '@/components/avatar';
-import { PageTitle } from '@/components/blocks';
 import { Field } from '@/components/field';
 import { Screen, Section } from '@/components/screen';
 import { Button, IconButton, Notice, T } from '@/components/ui';
@@ -68,8 +67,7 @@ export default function Jam() {
 
   if (!jam.session) {
     return (
-      <Screen back>
-        <PageTitle>Jam</PageTitle>
+      <Screen back largeTitle="Jam">
         <T tone="secondary" style={{ marginTop: -t.space[4] }}>
           Jam'de oturum sahibinin çaldığı şarkı herkeste aynı anda ilerler. Başlat ve kodu paylaş ya da bir arkadaşının koduyla katıl.
         </T>
@@ -100,8 +98,7 @@ export default function Jam() {
 
   const pretty = formatJamCode(jam.session.code);
   return (
-    <Screen back>
-      <PageTitle>Jam</PageTitle>
+    <Screen back largeTitle="Jam">
       <View style={{ gap: t.space[4], padding: t.space[5], borderRadius: t.radius.xl, backgroundColor: t.c.glass.panel.bg, borderColor: t.c.glass.edge, borderWidth: t.size.border.hairline }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.space[3] }}>
           <T variant="titleLg" accessibilityRole="header" style={{ flex: 1 }}>

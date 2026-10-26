@@ -4,13 +4,16 @@ import { router, type Href } from 'expo-router';
 import { Heart, Plus } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Empty, PageTitle } from '@/components/blocks';
+import Animated, { FadeOut, LinearTransition, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { Empty } from '@/components/blocks';
 import { Cover } from '@/components/cover';
 import { NamePrompt } from '@/components/name-prompt';
 import { Screen } from '@/components/screen';
+import { Tappable } from '@/components/tappable';
 import { TrackList } from '@/components/track-list';
 import { IconButton, T } from '@/components/ui';
 import { useCreatePlaylist, usePlaylists } from '@/lib/data';
+import { anim, DURATION, EASE, enter, haptic } from '@/lib/motion';
 import { offlineAsTrack, useOffline } from '@/lib/offline';
 import { routes } from '@/lib/routes';
 import { useAuthed } from '@/lib/session';
@@ -58,35 +61,29 @@ export default function Library() {
 
   return (
     <Screen
+      largeTitle="Kitaplığın"
+      trailing={<IconButton icon={Plus} label="Yeni çalma listesi" color={t.c.text.primary} onPress={() => setCreating(true)} />}
+      sticky={
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="tablist" style={{ marginHorizontal: -t.space[4] }} contentContainerStyle={{ gap: t.space[2], paddingHorizontal: t.space[4] }}>
+          {FILTERS.map(([f, label]) => (
+            <Chip
+              key={f}
+              label={label}
+              on={filter === f}
+              onPress={() => {
+                if (filter !== f) haptic.select();
+                setFilter(f);
+              }}
+            />
+          ))}
+        </ScrollView>
+      }
       refreshing={playlists.isRefetching || artists.isRefetching}
       onRefresh={() => {
         void playlists.refetch();
         void artists.refetch();
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <PageTitle>Kitaplığın</PageTitle>
-        <IconButton icon={Plus} label="Yeni çalma listesi" color={t.c.text.primary} onPress={() => setCreating(true)} />
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="tablist" style={{ marginHorizontal: -t.space[4], marginTop: -t.space[4] }} contentContainerStyle={{ gap: t.space[2], paddingHorizontal: t.space[4] }}>
-        {FILTERS.map(([f, label]) => {
-          const on = filter === f;
-          return (
-            <Pressable
-              key={f}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-              onPress={() => setFilter(f)}
-              style={{ minHeight: t.size.control.md, justifyContent: 'center', paddingHorizontal: t.space[4], borderRadius: t.radius.full, backgroundColor: on ? t.c.surface.inverse : t.c.fill.subtle }}
-            >
-              <T variant="labelMd" tone={on ? 'inverse' : 'primary'}>
-                {label}
-              </T>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
       {filter === 'downloads' ? (
         offline.songs.length ? (
           <TrackList tracks={offline.songs.map(offlineAsTrack)} contextId="downloads" />
@@ -95,31 +92,32 @@ export default function Library() {
         )
       ) : rows.length ? (
         <View style={{ gap: t.space[1], marginHorizontal: -t.space[2] }}>
-          {rows.map((r) => (
-            <Pressable
-              key={r.key}
-              accessibilityRole="link"
-              accessibilityLabel={`${r.title}, ${r.meta}`}
-              onPress={() => router.push(r.href)}
-              android_ripple={{ color: t.c.state.pressed }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: t.space[3], minHeight: t.size.control.xl, paddingHorizontal: t.space[2], borderRadius: t.radius.md }}
-            >
-              {r.liked ? (
-                <View style={{ width: t.size.artwork.sm, height: t.size.artwork.sm, borderRadius: t.radius.artwork.sm, backgroundColor: t.c.accent.default, alignItems: 'center', justifyContent: 'center' }}>
-                  <Heart color={t.c.accent.on} fill={t.c.accent.on} size={t.size.icon.sm} />
+          {rows.map((r, i) => (
+            <Animated.View key={r.key} entering={enter(i)} exiting={anim(FadeOut.duration(DURATION.fast))} layout={anim(LinearTransition.duration(DURATION.base).easing(EASE.standard))}>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={`${r.title}, ${r.meta}`}
+                onPress={() => router.push(r.href)}
+                android_ripple={{ color: t.c.state.pressed }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: t.space[3], minHeight: t.size.control.xl, paddingHorizontal: t.space[2], borderRadius: t.radius.md, overflow: 'hidden' }}
+              >
+                {r.liked ? (
+                  <View style={{ width: t.size.artwork.sm, height: t.size.artwork.sm, borderRadius: t.radius.artwork.sm, backgroundColor: t.c.accent.default, alignItems: 'center', justifyContent: 'center' }}>
+                    <Heart color={t.c.accent.on} fill={t.c.accent.on} size={t.size.icon.sm} />
+                  </View>
+                ) : (
+                  <Cover uri={r.cover} size={t.size.artwork.sm} round={r.round} />
+                )}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <T variant="labelMd" numberOfLines={1}>
+                    {r.title}
+                  </T>
+                  <T variant="bodySm" tone="secondary" numberOfLines={1}>
+                    {r.meta}
+                  </T>
                 </View>
-              ) : (
-                <Cover uri={r.cover} size={t.size.artwork.sm} round={r.round} />
-              )}
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <T variant="labelMd" numberOfLines={1}>
-                  {r.title}
-                </T>
-                <T variant="bodySm" tone="secondary" numberOfLines={1}>
-                  {r.meta}
-                </T>
-              </View>
-            </Pressable>
+              </Pressable>
+            </Animated.View>
           ))}
         </View>
       ) : (
@@ -142,5 +140,21 @@ export default function Library() {
         }}
       />
     </Screen>
+  );
+}
+
+/** Süzgeç: seçilince zemini yumuşakça ters renge döner. */
+function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  const t = useTheme();
+  const bg = on ? t.c.surface.inverse : t.c.fill.subtle;
+  const fill = useAnimatedStyle(() => ({ backgroundColor: withTiming(bg, { duration: DURATION.base, easing: EASE.standard }) }));
+  return (
+    <Tappable accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={onPress} scaleTo={0.94} style={{ borderRadius: t.radius.full }}>
+      <Animated.View style={[{ minHeight: t.size.control.md, justifyContent: 'center', paddingHorizontal: t.space[4], borderRadius: t.radius.full }, fill]}>
+        <T variant="labelMd" tone={on ? 'inverse' : 'primary'}>
+          {label}
+        </T>
+      </Animated.View>
+    </Tappable>
   );
 }

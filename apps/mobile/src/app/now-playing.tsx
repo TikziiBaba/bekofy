@@ -1,5 +1,7 @@
-// Şimdi çalıyor: alttan kayarak açılır; aşağı sürükleyince, "Kapat"la ya da geri tuşuyla kayarak kapanır.
-// Kapakta yana kaydırma önceki/sonraki şarkıya geçer; duraklatınca kapak küçülür. Sözler ve sıradakiler alt sayfada.
+// Şimdi çalıyor: alttan kayarak açılır; açılırken kapak yerine oturur, başlık ve denetimler sırayla yükselir.
+// Aşağı sürükleyince yüzey parmağı izleyip hafifçe küçülür; bırakınca, "Kapat"la ya da geri tuşuyla kayarak kapanır.
+// Kapakta yana kaydırma önceki/sonraki şarkıya geçer; duraklatınca kapak küçülür. Sözler ve sıradakiler alt sayfada;
+// sözlerde çalan satır yumuşakça parlar.
 
 import { activeLineIndex, fetchLyrics, getSong, storedLyrics } from '@bekofy/core';
 import { useQuery } from '@tanstack/react-query';
@@ -8,7 +10,7 @@ import { ChevronDown, ListMusic, ListPlus, ListStart, MicVocal, Repeat, Repeat1,
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
-import Animated, { FadeIn, interpolate, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, interpolate, Keyframe, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Cover } from '@/components/cover';
@@ -32,6 +34,24 @@ const skip = (dir: 1 | -1) => {
   if (dir > 0) player.next();
   else player.previous();
 };
+
+/** Açılış sırası: kapak biraz küçükten yerine oturur, ardından başlık ve denetimler aşağıdan yükselir. */
+const coverIn = () =>
+  anim(
+    new Keyframe({
+      0: { opacity: 0, transform: [{ scale: 0.9 }] },
+      100: { opacity: 1, transform: [{ scale: 1 }], easing: EASE.emphasized },
+    })
+      .delay(DURATION.fast)
+      .duration(DURATION.slow),
+  );
+const riseIn = (step: number) =>
+  anim(
+    FadeInDown.delay(DURATION.base + step * 60)
+      .duration(DURATION.slow)
+      .easing(EASE.emphasized)
+      .withInitialValues({ opacity: 0, transform: [{ translateY: 24 }] }),
+  );
 
 export default function NowPlaying() {
   const t = useTheme();
@@ -77,7 +97,7 @@ export default function NowPlaying() {
     failOffsetX: [-24, 24],
     onUpdate: (e) => {
       'worklet';
-      y.value = Math.max(0, e.translationY);
+      y.value = e.translationY > 0 ? e.translationY : e.translationY * 0.1;
     },
     onDeactivate: (e) => {
       'worklet';
@@ -113,7 +133,7 @@ export default function NowPlaying() {
     },
   });
 
-  const sheet = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  const sheet = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }, { scale: interpolate(y.value, [0, height * 0.6], [1, 0.94], 'clamp') }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [0, height], [1, 0], 'clamp') }));
   const coverStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: x.value }, { scale: shrink.value * interpolate(Math.abs(x.value), [0, width], [1, 0.9], 'clamp') }],
@@ -137,24 +157,26 @@ export default function NowPlaying() {
 
             {cur ? (
               <>
-                <GestureDetector gesture={swipe}>
-                  <Animated.View
-                    accessible
-                    accessibilityRole="image"
-                    accessibilityLabel={`${cur.title} kapağı`}
-                    accessibilityHint="Sonraki ya da önceki şarkı için yana kaydır"
-                    accessibilityActions={[{ name: 'increment', label: 'Sonraki şarkı' }, { name: 'decrement', label: 'Önceki şarkı' }]}
-                    onAccessibilityAction={(e) => (e.nativeEvent.actionName === 'increment' ? player.next() : player.previous())}
-                    style={[{ alignSelf: 'center' }, coverStyle]}
-                  >
-                    <Animated.View key={cur.id} entering={anim(FadeIn.duration(DURATION.moderate).easing(EASE.standard))}>
-                      <Cover uri={cur.cover_url} size={art} />
+                <Animated.View entering={coverIn()} style={{ alignSelf: 'center' }}>
+                  <GestureDetector gesture={swipe}>
+                    <Animated.View
+                      accessible
+                      accessibilityRole="image"
+                      accessibilityLabel={`${cur.title} kapağı`}
+                      accessibilityHint="Sonraki ya da önceki şarkı için yana kaydır"
+                      accessibilityActions={[{ name: 'increment', label: 'Sonraki şarkı' }, { name: 'decrement', label: 'Önceki şarkı' }]}
+                      onAccessibilityAction={(e) => (e.nativeEvent.actionName === 'increment' ? player.next() : player.previous())}
+                      style={coverStyle}
+                    >
+                      <Animated.View key={cur.id} entering={anim(FadeIn.duration(DURATION.moderate).easing(EASE.standard))}>
+                        <Cover uri={cur.cover_url} size={art} shadow={t.shadow.lg} />
+                      </Animated.View>
                     </Animated.View>
-                  </Animated.View>
-                </GestureDetector>
+                  </GestureDetector>
+                </Animated.View>
 
                 <View style={{ gap: t.space[4] }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space[3] }}>
+                  <Animated.View entering={riseIn(0)} style={{ flexDirection: 'row', alignItems: 'center', gap: t.space[3] }}>
                     <Animated.View key={cur.id} entering={anim(FadeIn.duration(DURATION.moderate))} style={{ flex: 1, minWidth: 0 }}>
                       <T variant="titleLg" numberOfLines={2}>
                         {cur.title}
@@ -164,9 +186,11 @@ export default function NowPlaying() {
                       </T>
                     </Animated.View>
                     <LikeButton songId={cur.id} title={cur.title} size={t.size.icon.md} />
-                  </View>
-                  <Seek />
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  </Animated.View>
+                  <Animated.View entering={riseIn(1)}>
+                    <Seek />
+                  </Animated.View>
+                  <Animated.View entering={riseIn(2)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <IconButton icon={Shuffle} label="Karışık çal" active={p.shuffle} onPress={() => player.toggleShuffle()} />
                     <IconButton icon={SkipBack} label="Önceki" color={t.c.text.primary} filled size={t.size.icon.lg} onPress={() => skip(-1)} />
                     <PlayButton size={t.size.control.xl + t.space[2]} playing={p.isPlaying} label={cur.title} onPress={() => player.toggle()} />
@@ -177,11 +201,11 @@ export default function NowPlaying() {
                       active={p.repeat !== 'off'}
                       onPress={() => player.cycleRepeat()}
                     />
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: t.space[2] }}>
+                  </Animated.View>
+                  <Animated.View entering={riseIn(3)} style={{ flexDirection: 'row', gap: t.space[2] }}>
                     <Button variant="secondary" icon={MicVocal} label="Sözler" onPress={() => setPanel('lyrics')} style={{ flex: 1 }} />
                     <Button variant="secondary" icon={ListMusic} label="Sıradaki" onPress={() => setPanel('queue')} style={{ flex: 1 }} />
-                  </View>
+                  </Animated.View>
                 </View>
               </>
             ) : (
@@ -213,12 +237,14 @@ function Lyrics({ songId }: { songId: string }) {
   });
   const synced = q.data?.synced ?? null;
   const active = synced ? activeLineIndex(synced, p.position + 0.2) : -1;
+  const lit = useSharedValue(active);
 
   // Etkin satırı kutunun üçte birine getir; yalnızca söz kutusu kayar.
   useEffect(() => {
+    lit.value = active;
     const at = lines.current[active];
     if (at !== undefined) box.current?.scrollTo({ y: Math.max(0, at - 140), animated: true });
-  }, [active]);
+  }, [active, lit]);
 
   if (q.isLoading) return <T tone="secondary" style={{ padding: t.space[3] }}>Sözler aranıyor</T>;
   if (!q.data) return <T tone="secondary" style={{ padding: t.space[3] }}>Bu şarkının sözleri bulunamadı.</T>;
@@ -237,9 +263,7 @@ function Lyrics({ songId }: { songId: string }) {
             }}
             onPress={() => player.seek(line.time)}
           >
-            <T variant="titleMd" style={{ color: i === active ? t.c.text.primary : t.c.text.tertiary }}>
-              {line.text || '...'}
-            </T>
+            <LyricLine index={i} lit={lit} text={line.text || '...'} />
           </Pressable>
         ))
       ) : (
@@ -249,6 +273,19 @@ function Lyrics({ songId }: { songId: string }) {
       )}
     </ScrollView>
   );
+}
+
+/** Söz satırı: çalan satır renk ve boyutça yumuşak bir geçişle öne çıkar, geçenler geri çekilir. */
+function LyricLine({ index, lit, text }: { index: number; lit: SharedValue<number>; text: string }) {
+  const t = useTheme();
+  const primary = t.c.text.primary;
+  const tertiary = t.c.text.tertiary;
+  const style = useAnimatedStyle(() => {
+    const on = lit.value === index;
+    const timing = { duration: DURATION.moderate, easing: EASE.standard };
+    return { color: withTiming(on ? primary : tertiary, timing), transform: [{ scale: withTiming(on ? 1 : 0.96, timing) }] };
+  });
+  return <Animated.Text style={[t.type.titleMd, { transformOrigin: 'left center' }, style]}>{text}</Animated.Text>;
 }
 
 function Queue() {

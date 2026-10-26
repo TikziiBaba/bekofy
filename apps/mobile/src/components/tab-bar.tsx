@@ -1,17 +1,20 @@
-// Alt çubuk: üstte mini oynatıcı (bir şey çalıyorsa), altta üç sekme.
-// Mini oynatıcı: dokun ya da yukarı kaydır -> "Şimdi çalıyor"; yana kaydır -> önceki/sonraki şarkı.
-// Etkin sekmenin simgesinin arkasında bir hap belirir (Material 3 etkin göstergesi). Sondaki "Oluştur" bir sekme
-// değil: liste, ortak liste ve Jam oluşturma menüsünü açar.
+// Alt çubuk: üstte mini oynatıcı (bir şey çalıyorsa), altta üç sekme. İçerik çubuğa sert bir çizgiyle değil,
+// üstündeki kısa bir geçişle karışarak girer.
+// Mini oynatıcı: dokun ya da yukarı kaydır -> "Şimdi çalıyor"; yana kaydır -> önceki/sonraki şarkı. Zemini çalan
+// şarkının kapağından renk alır (ayar kapalıysa yüzey rengi); ilerleme çizgisi akıcı dolar.
+// Etkin sekmenin simgesinin arkasında bir hap belirir (Material 3 etkin göstergesi), simge kısa bir yayla oturur.
+// Sondaki "Oluştur" bir sekme değil: liste, ortak liste ve Jam oluşturma menüsünü açar.
 
 import { router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { House, Library, Plus, Search, type LucideIcon } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
-import Animated, { FadeIn, interpolate, SlideInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, interpolate, SlideInDown, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
+import { useCoverAmbient } from '@/lib/ambient';
 import { anim, DURATION, EASE, haptic, SPRING } from '@/lib/motion';
 import { player, usePlayer } from '@/lib/player';
 import { routes } from '@/lib/routes';
@@ -19,6 +22,7 @@ import { useTheme } from '@/theme';
 import { Cover } from './cover';
 import { CreateMenu } from './create-menu';
 import { MINI_PLAYER_HEIGHT } from './screen';
+import { useProgress } from './seek';
 import { PlayButton, T } from './ui';
 
 const TABS: Record<string, [string, LucideIcon]> = {
@@ -39,9 +43,13 @@ function MiniPlayer() {
   const { width } = useWindowDimensions();
   const p = usePlayer();
   const cur = p.current;
+  const tint = useCoverAmbient(t.mode);
+  const progress = useProgress();
   const x = useSharedValue(0);
   const axis = useSharedValue<0 | 1 | 2>(0); // 0 belirsiz, 1 yatay, 2 dikey
   const lift = useSharedValue(0);
+  const press = useSharedValue(1);
+  const bg = tint ? tint[1] : t.c.surface.raised;
 
   const pan = usePanGesture({
     activeOffsetX: [-12, 12],
@@ -54,7 +62,8 @@ function MiniPlayer() {
       'worklet';
       if (axis.value === 0) axis.value = Math.abs(e.translationX) > Math.abs(e.translationY) ? 1 : 2;
       if (axis.value === 1) x.value = e.translationX;
-      else lift.value = Math.min(0, e.translationY);
+      // Yukarı çekince kart parmağı izler; aşağı çekince direnç gösterir.
+      else lift.value = e.translationY < 0 ? e.translationY : e.translationY * 0.15;
     },
     onDeactivate: (e) => {
       'worklet';
@@ -79,14 +88,17 @@ function MiniPlayer() {
     transform: [{ translateX: x.value }],
     opacity: interpolate(Math.abs(x.value), [0, width * 0.6], [1, 0], 'clamp'),
   }));
-  const card = useAnimatedStyle(() => ({ transform: [{ translateY: lift.value * 0.4 }] }));
+  const card = useAnimatedStyle(() => ({
+    backgroundColor: withTiming(bg, { duration: DURATION.ambient, easing: EASE.standard }),
+    transform: [{ translateY: lift.value * 0.4 }, { scale: press.value * interpolate(lift.value, [-120, 0], [1.03, 1], 'clamp') }],
+  }));
+  const bar = useAnimatedStyle(() => ({ transform: [{ scaleX: progress.value }] }));
 
   if (!cur) return null;
-  const ratio = p.duration ? Math.min(1, p.position / p.duration) : 0;
   return (
     <Animated.View
       entering={anim(SlideInDown.duration(DURATION.slow).easing(EASE.emphasized))}
-      style={[{ marginHorizontal: t.space[2], marginBottom: t.space[1], borderRadius: t.radius.lg, overflow: 'hidden', backgroundColor: t.c.surface.raised, borderColor: t.c.glass.edge, borderWidth: t.size.border.hairline }, card]}
+      style={[{ marginHorizontal: t.space[2], marginBottom: t.space[1], borderRadius: t.radius.lg, overflow: 'hidden', borderColor: t.c.glass.edge, borderWidth: t.size.border.hairline }, card]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', height: MINI_PLAYER_HEIGHT - t.space[1], paddingRight: t.space[2] }}>
         <GestureDetector gesture={pan}>
@@ -102,7 +114,12 @@ function MiniPlayer() {
                 else player.toggle();
               }}
               onPress={openNowPlaying}
-              android_ripple={{ color: t.c.state.pressed }}
+              onPressIn={() => {
+                press.value = withTiming(0.98, { duration: DURATION.fast, easing: EASE.standard });
+              }}
+              onPressOut={() => {
+                press.value = withSpring(1, SPRING);
+              }}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: t.space[3], paddingLeft: t.space[2] }}
             >
               <Animated.View key={cur.id} entering={anim(FadeIn.duration(DURATION.moderate))} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: t.space[3] }}>
@@ -121,9 +138,13 @@ function MiniPlayer() {
         </GestureDetector>
         <PlayButton size={t.size.control.md} playing={p.isPlaying} label={cur.title} onPress={() => player.toggle()} />
       </View>
-      {/* Genişlik yerine ölçek: yerleşim değişmez, her tikte erişilebilirlik olayı üretilmez. */}
-      <View accessible={false} importantForAccessibility="no-hide-descendants" style={{ height: 2, backgroundColor: t.c.fill.muted }}>
-        <View style={{ width: '100%', height: '100%', backgroundColor: t.c.accent.default, transformOrigin: 'left', transform: [{ scaleX: ratio }] }} />
+      {/* Genişlik yerine ölçek: yerleşim değişmez, her karede erişilebilirlik olayı üretilmez. */}
+      <View
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        style={{ position: 'absolute', left: t.space[3], right: t.space[3], bottom: 0, height: t.size.border.strong, borderRadius: t.radius.full, overflow: 'hidden', backgroundColor: t.c.fill.muted }}
+      >
+        <Animated.View style={[{ width: '100%', height: '100%', backgroundColor: t.c.text.primary, transformOrigin: 'left' }, bar]} />
       </View>
     </Animated.View>
   );
@@ -132,10 +153,16 @@ function MiniPlayer() {
 function Tab({ label, icon: Icon, focused, onPress, role = 'tab' }: { label: string; icon: LucideIcon; focused: boolean; onPress: () => void; role?: 'tab' | 'button' }) {
   const t = useTheme();
   const on = useSharedValue(focused ? 1 : 0);
+  const pop = useSharedValue(1);
+  const first = useRef(true);
   useEffect(() => {
     on.value = withTiming(focused ? 1 : 0, { duration: DURATION.moderate, easing: EASE.emphasized });
-  }, [focused, on]);
+    // Açılışta değil, sekme seçilince: simge hafifçe içe çekilip yayla yerine oturur.
+    if (focused && !first.current) pop.value = withSequence(withTiming(0.84, { duration: DURATION.fast, easing: EASE.standard }), withSpring(1, SPRING));
+    first.current = false;
+  }, [focused, on, pop]);
   const pill = useAnimatedStyle(() => ({ opacity: on.value, transform: [{ scaleX: interpolate(on.value, [0, 1], [0.5, 1]) }] }));
+  const icon = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
   const color = focused ? t.c.text.primary : t.c.text.secondary;
   return (
     <Pressable
@@ -147,7 +174,9 @@ function Tab({ label, icon: Icon, focused, onPress, role = 'tab' }: { label: str
     >
       <View style={{ width: 64, height: 32, alignItems: 'center', justifyContent: 'center' }}>
         <Animated.View style={[{ position: 'absolute', inset: 0, borderRadius: t.radius.full, backgroundColor: t.c.fill.muted }, pill]} />
-        <Icon color={color} size={t.size.icon.md} strokeWidth={focused ? 2.4 : 2} />
+        <Animated.View style={icon}>
+          <Icon color={color} size={t.size.icon.md} strokeWidth={focused ? 2.4 : 2} />
+        </Animated.View>
       </View>
       <T variant="labelSm" style={{ color }}>
         {label}
@@ -160,8 +189,11 @@ export function TabBar({ state, descriptors, emitter, navigateToTab }: BottomTab
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const [creating, setCreating] = useState(false);
+  const base = t.c.glass.chrome.solid;
   return (
-    <View style={{ backgroundColor: t.c.glass.chrome.solid, borderTopColor: t.c.glass.hairline, borderTopWidth: t.size.border.hairline, paddingTop: t.space[2], paddingBottom: insets.bottom }}>
+    <View style={{ backgroundColor: base, borderTopColor: t.c.glass.hairline, borderTopWidth: t.size.border.hairline, paddingTop: t.space[2], paddingBottom: insets.bottom }}>
+      {/* İçerik çubuğa karışarak girer. */}
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: -t.space[8], height: t.space[8], backgroundImage: `linear-gradient(180deg, ${base}00 0%, ${base} 100%)` }} />
       <MiniPlayer />
       <View accessibilityRole="tablist" style={{ flexDirection: 'row', height: t.size.layout.tabBar }}>
         {state.routes.map((route, index) => {

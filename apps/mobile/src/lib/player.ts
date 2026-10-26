@@ -30,6 +30,8 @@ export interface PlayerState {
 }
 
 const LOOP = { off: 'none', all: 'all', one: 'single' } as const;
+/** Konum bu sıklıkla gelir; ilerleme çubukları aradaki süreyi akıcı doldurur. */
+export const STATUS_INTERVAL_MS = 500;
 
 class Player {
   private native: AudioPlaylist | null = null;
@@ -43,7 +45,7 @@ class Player {
   private get pl(): AudioPlaylist {
     if (!this.native) {
       void setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' });
-      this.native = createAudioPlaylist({ sources: [], updateInterval: 500, loop: 'none' });
+      this.native = createAudioPlaylist({ sources: [], updateInterval: STATUS_INTERVAL_MS, loop: 'none' });
       this.native.addListener('playlistStatusUpdate', (s: AudioPlaylistStatus) => this.onStatus(s));
       this.native.addListener('trackChanged', (e: { currentIndex: number }) => this.onTrackChanged(e.currentIndex));
     }

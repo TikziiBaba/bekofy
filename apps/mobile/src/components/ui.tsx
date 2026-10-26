@@ -25,8 +25,7 @@ export function T({ variant = 'bodyMd', tone = 'primary', style, ...props }: Tex
   return <Text {...props} style={[t.type[variant], { color }, style]} />;
 }
 
-/** inverseOutline: ters renkli (açık zeminli) şeritlerde ikincil düğme. */
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'inverseOutline';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
 
 export function Button({
   label,
@@ -48,8 +47,8 @@ export function Button({
   accessibilityLabel?: string;
 }) {
   const t = useTheme();
-  const bg = { primary: t.c.accent.default, secondary: t.c.fill.subtle, ghost: 'transparent', destructive: t.c.destructive.default, inverseOutline: 'transparent' }[variant];
-  const fg = { primary: t.c.accent.on, secondary: t.c.text.primary, ghost: t.c.text.primary, destructive: t.c.destructive.on, inverseOutline: t.c.text.inverse }[variant];
+  const bg = { primary: t.c.accent.default, secondary: t.c.fill.subtle, ghost: 'transparent', destructive: t.c.destructive.default }[variant];
+  const fg = { primary: t.c.accent.on, secondary: t.c.text.primary, ghost: t.c.text.primary, destructive: t.c.destructive.on }[variant];
   const off = disabled || loading;
   return (
     <Tappable
@@ -62,7 +61,6 @@ export function Button({
       style={[
         styles.button,
         { backgroundColor: bg, borderRadius: t.radius.full, paddingHorizontal: t.space[5], minHeight: t.size.touch + 4, opacity: off ? 0.5 : 1, overflow: 'hidden' },
-        variant === 'inverseOutline' && { borderColor: fg, borderWidth: t.size.border.hairline },
         style,
       ]}
     >

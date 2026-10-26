@@ -7,7 +7,7 @@ import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-na
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
-import { DURATION, EASE, SPRING_SHEET } from '@/lib/motion';
+import { DURATION, EASE, SPRING_OPEN, SPRING_SHEET } from '@/lib/motion';
 import { useTheme } from '@/theme';
 import { Tappable } from './tappable';
 import { T } from './ui';
@@ -47,12 +47,16 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     failOffsetX: [-24, 24],
     onUpdate: (e) => {
       'worklet';
-      y.value = Math.max(0, e.translationY);
+      // Yukarı çekince yerinden az oynar (lastik etkisi), aşağı çekince parmağı izler.
+      y.value = e.translationY > 0 ? e.translationY : e.translationY * 0.12;
     },
     onDeactivate: (e) => {
       'worklet';
       if (e.translationY > height.value * 0.3 || e.velocityY > 900) {
-        y.value = withTiming(height.value, { duration: DURATION.base, easing: EASE.exit }, (done) => {
+        // Hızlı fırlatışta kalan yolu fırlatma hızıyla kat eder.
+        const rest = Math.max(0, height.value - y.value);
+        const duration = e.velocityY > 900 ? Math.max(DURATION.fast, Math.min(DURATION.base, (rest / e.velocityY) * 1000)) : DURATION.base;
+        y.value = withTiming(height.value, { duration, easing: EASE.exit }, (done) => {
           'worklet';
           if (done) scheduleOnRN(onClose);
         });
@@ -76,7 +80,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
             if (!entered.current && open) {
               entered.current = true;
               y.value = e.nativeEvent.layout.height;
-              y.value = withTiming(0, { duration: DURATION.moderate, easing: EASE.emphasized });
+              y.value = withSpring(0, SPRING_OPEN);
             }
           }}
           style={[
@@ -86,6 +90,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
               borderTopRightRadius: t.radius.sheet,
               borderColor: t.c.glass.edge,
               borderWidth: t.size.border.hairline,
+              boxShadow: t.shadow.lg,
               paddingHorizontal: t.space[2],
               paddingBottom: insets.bottom + t.space[4],
               maxHeight: '85%',
@@ -93,6 +98,8 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
             panel,
           ]}
         >
+          {/* Lastik etkisinde sayfa yukarı esnediğinde altında boşluk görünmesin. */}
+          <View accessible={false} pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: '100%', height: t.space[24], backgroundColor: t.c.surface.raised }} />
           <GestureDetector gesture={drag}>
             <View style={{ paddingTop: t.space[3] }}>
               <View accessible={false} style={{ alignSelf: 'center', width: t.space[10], height: t.space[1], borderRadius: t.radius.full, backgroundColor: t.c.border.strong, marginBottom: t.space[3] }} />

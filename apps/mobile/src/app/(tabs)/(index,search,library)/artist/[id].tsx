@@ -6,6 +6,7 @@ import { CollectionHead, Empty, Loadable } from '@/components/blocks';
 import { Screen, Section } from '@/components/screen';
 import { TrackList } from '@/components/track-list';
 import { Button, PlayButton } from '@/components/ui';
+import { useCoverTint } from '@/lib/ambient';
 import { player, usePlayer } from '@/lib/player';
 import { useAuthed } from '@/lib/session';
 import { sb } from '@/lib/supabase';
@@ -26,14 +27,25 @@ export default function Artist() {
     },
   });
 
+  const tint = useCoverTint(q.data ? (q.data.artist.avatar_url ?? q.data.songs[0]?.cover_url) : null, t.mode);
+  const here = p.contextId === id;
+  const songs = q.data?.songs ?? [];
+
   return (
-    <Screen back title={q.data?.artist.name} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+    <Screen
+      back
+      tint={tint}
+      title={q.data?.artist.name}
+      actions={songs.length ? <PlayButton size={t.size.control.md} playing={here && p.isPlaying} label={q.data?.artist.name ?? ''} onPress={() => (here ? player.toggle() : player.playList(songs, 0, id))} /> : null}
+      refreshing={q.isRefetching}
+      onRefresh={() => void q.refetch()}
+    >
       <Loadable query={q} label="Sanatçı">
         {({ artist, songs, following, followers }) => (
           <>
             <CollectionHead kind="Sanatçı" title={artist.name} cover={artist.avatar_url ?? songs[0]?.cover_url} round meta={`${formatCount(followers)} takipçi`} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space[3] }}>
-              {songs.length ? <PlayButton size={t.size.control.xl} playing={p.contextId === id && p.isPlaying} label={artist.name} onPress={() => (p.contextId === id ? player.toggle() : player.playList(songs, 0, id))} /> : null}
+              {songs.length ? <PlayButton size={t.size.control.xl} playing={here && p.isPlaying} label={artist.name} onPress={() => (here ? player.toggle() : player.playList(songs, 0, id))} /> : null}
               <Button
                 variant="secondary"
                 label={following ? 'Takip ediliyor' : 'Takip et'}

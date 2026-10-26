@@ -5,6 +5,7 @@ import { CollectionHead, Empty, Loadable, songCount } from '@/components/blocks'
 import { Screen } from '@/components/screen';
 import { TrackList } from '@/components/track-list';
 import { PlayButton } from '@/components/ui';
+import { useCoverTint } from '@/lib/ambient';
 import { player, usePlayer, type Track } from '@/lib/player';
 import { sb } from '@/lib/supabase';
 import { useTheme } from '@/theme';
@@ -24,14 +25,24 @@ export default function Album() {
     },
   });
 
+  const tint = useCoverTint(q.data?.[0]?.cover_url, t.mode);
+  const here = p.contextId === ctx;
+
   return (
-    <Screen back title={title} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+    <Screen
+      back
+      tint={tint}
+      title={title}
+      actions={q.data?.length ? <PlayButton size={t.size.control.md} playing={here && p.isPlaying} label={title} onPress={() => (here ? player.toggle() : player.playList(q.data, 0, ctx))} /> : null}
+      refreshing={q.isRefetching}
+      onRefresh={() => void q.refetch()}
+    >
       <Loadable query={q} label="Albüm">
         {(songs) =>
           songs.length ? (
             <>
               <CollectionHead kind="Albüm" title={title} cover={songs[0]?.cover_url} meta={`${artist} · ${songCount(songs)}`} />
-              <PlayButton size={t.size.control.xl} playing={p.contextId === ctx && p.isPlaying} label={title} onPress={() => (p.contextId === ctx ? player.toggle() : player.playList(songs, 0, ctx))} />
+              <PlayButton size={t.size.control.xl} playing={here && p.isPlaying} label={title} onPress={() => (here ? player.toggle() : player.playList(songs, 0, ctx))} />
               <TrackList tracks={songs} contextId={ctx} />
             </>
           ) : (

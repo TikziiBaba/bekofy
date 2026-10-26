@@ -5,44 +5,41 @@ import { router, type Href } from 'expo-router';
 import { Play } from 'lucide-react-native';
 import { useEffect, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
-import Animated, { cancelAnimation, Extrapolation, FadeInDown, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import { anim, DURATION, EASE, haptic } from '@/lib/motion';
+import Animated, { cancelAnimation, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import { enter, EASE, haptic } from '@/lib/motion';
 import { useTheme } from '@/theme';
 import { Cover } from './cover';
 import { useScrollY } from './screen';
 import { Tappable } from './tappable';
 import { Button, T } from './ui';
 
-export function PageTitle({ children }: { children: ReactNode }) {
-  return (
-    <T variant="titleXl" accessibilityRole="header">
-      {children}
-    </T>
-  );
-}
+const CARD = 144;
 
-/** Yatay kaydırılan kart rafı; kenardan kenara uzanır. */
+/** Yatay kaydırılan kart rafı; kenardan kenara uzanır, bırakınca bir kartın başına yaslanır. */
 export function Shelf({ label, children }: { label: string; children: ReactNode }) {
   const t = useTheme();
   return (
-    <ScrollView horizontal accessibilityLabel={label} showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -t.space[4] }} contentContainerStyle={{ paddingHorizontal: t.space[4], gap: t.space[3] }}>
+    <ScrollView
+      horizontal
+      accessibilityLabel={label}
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={CARD + t.space[3]}
+      decelerationRate="fast"
+      style={{ marginHorizontal: -t.space[4], marginVertical: -t.space[3] }}
+      contentContainerStyle={{ paddingHorizontal: t.space[4], paddingVertical: t.space[3], gap: t.space[3] }}
+    >
       {children}
     </ScrollView>
   );
 }
-
-const CARD = 144;
-
-/** İlk sekiz öğe sırayla belirir; sonrakiler beklemeden. */
-export const enter = (index: number) => anim(FadeInDown.delay(Math.min(index, 8) * 45).duration(DURATION.moderate).easing(EASE.emphasized));
 
 /** Kapaklı kart; karta dokununca sayfası açılır, çal düğmesi ayrı. */
 export function Card({ href, cover, title, sub, round = false, onPlay, index = 0 }: { href: Href; cover: string | null | undefined; title: string; sub: string; round?: boolean; onPlay?: () => void; index?: number }) {
   const t = useTheme();
   return (
     <Animated.View entering={enter(index)} style={{ width: CARD }}>
-      <Tappable accessibilityRole="link" accessibilityLabel={`${title}, ${sub}`} onPress={() => router.push(href)} style={{ gap: t.space[2] }}>
-        <Cover uri={cover} size={CARD} round={round} />
+      <Tappable accessibilityRole="link" accessibilityLabel={`${title}, ${sub}`} onPress={() => router.push(href)} scaleTo={0.95} style={{ gap: t.space[2] }}>
+        <Cover uri={cover} size={CARD} round={round} shadow={t.shadow.md} />
         <View>
           <T variant="labelMd" numberOfLines={1}>
             {title}
@@ -61,48 +58,61 @@ export function Card({ href, cover, title, sub, round = false, onPlay, index = 0
             onPlay();
           }}
           hitSlop={4}
-          scaleTo={0.88}
+          scaleTo={0.86}
           style={{
             position: 'absolute',
             right: t.space[2],
-            top: CARD - t.size.touch - t.space[2],
-            width: t.size.touch,
-            height: t.size.touch,
+            top: CARD - t.size.control.md - t.space[2],
+            width: t.size.control.md,
+            height: t.size.control.md,
             borderRadius: t.radius.full,
             backgroundColor: t.c.accent.default,
+            boxShadow: t.shadow.md,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Play color={t.c.accent.on} fill={t.c.accent.on} size={t.size.icon.sm} style={{ marginLeft: 2 }} />
+          <Play color={t.c.accent.on} fill={t.c.accent.on} size={t.size.icon.xs} style={{ marginLeft: 2 }} />
         </Tappable>
       ) : null}
     </Animated.View>
   );
 }
 
-/** Çalma listesi, albüm, sanatçı, profil başlığı. Kaydırınca kapak küçülüp solar (başlık üst çubuğa geçer). */
+/**
+ * Çalma listesi, albüm, sanatçı, profil başlığı. Kaydırınca kapak yarım hızla geride kalır, küçülür ve solar;
+ * başlığın bittiği yer ölçülüp ekrana bildirilir (adı tam o anda üst çubuğa geçer).
+ */
 export function CollectionHead({ kind, title, cover, round = false, meta, description, art }: { kind: string; title: string; cover?: string | null; round?: boolean; meta?: string; description?: string | null; art?: ReactNode }) {
   const t = useTheme();
-  const y = useScrollY();
+  const s = useScrollY();
   const artStyle = useAnimatedStyle(() => {
-    const v = y?.value ?? 0;
+    const v = s?.y.value ?? 0;
     return {
-      opacity: interpolate(v, [0, 220], [1, 0.15], Extrapolation.CLAMP),
-      transform: [{ translateY: interpolate(v, [0, 220], [0, 70], Extrapolation.CLAMP) }, { scale: interpolate(v, [0, 220], [1, 0.82], Extrapolation.CLAMP) }],
+      opacity: interpolate(v, [0, 220], [1, 0], Extrapolation.CLAMP),
+      transform: [{ translateY: v > 0 ? v * 0.35 : v * 0.5 }, { scale: v > 0 ? interpolate(v, [0, 220], [1, 0.86], Extrapolation.CLAMP) : interpolate(v, [-160, 0], [1.12, 1], Extrapolation.CLAMP) }],
     };
   });
   return (
-    <View style={{ gap: t.space[4] }}>
-      <Animated.View style={[{ alignSelf: 'center' }, artStyle]}>{art ?? <Cover uri={cover} size={t.size.artwork.xl} round={round} />}</Animated.View>
-      <View style={{ gap: t.space[1] }}>
+    <View
+      onLayout={(e) => {
+        if (s) s.revealAt.value = e.nativeEvent.layout.y + e.nativeEvent.layout.height - s.edge;
+      }}
+      style={{ gap: t.space[5] }}
+    >
+      <Animated.View style={[{ alignSelf: 'center' }, artStyle]}>{art ?? <Cover uri={cover} size={t.size.artwork.xl} round={round} shadow={t.shadow.lg} />}</Animated.View>
+      <View style={{ gap: t.space[1], zIndex: 1 }}>
         <T variant="labelMd" tone="secondary">
           {kind}
         </T>
-        <T variant="displayLg" accessibilityRole="header">
+        <T variant={title.length > 12 ? 'titleXl' : 'displayLg'} accessibilityRole="header" numberOfLines={3}>
           {title}
         </T>
-        {description ? <T tone="secondary">{description}</T> : null}
+        {description ? (
+          <T tone="secondary" numberOfLines={3}>
+            {description}
+          </T>
+        ) : null}
         {meta ? (
           <T variant="bodySm" tone="secondary">
             {meta}

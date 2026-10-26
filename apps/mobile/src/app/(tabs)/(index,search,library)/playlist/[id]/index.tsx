@@ -7,6 +7,7 @@ import { CollectionHead, Empty, Loadable, songCount } from '@/components/blocks'
 import { Screen } from '@/components/screen';
 import { TrackList } from '@/components/track-list';
 import { Button, IconButton, PlayButton } from '@/components/ui';
+import { useCoverTint } from '@/lib/ambient';
 import { keys } from '@/lib/data';
 import { canDownload, downloadTrack, PREMIUM_DOWNLOAD_MESSAGE } from '@/lib/offline';
 import { player, usePlayer } from '@/lib/player';
@@ -31,17 +32,28 @@ export default function Playlist() {
     },
   });
 
+  const cover = q.data ? (q.data.list.cover_url ?? q.data.songs[0]?.cover_url) : null;
+  const tint = useCoverTint(cover, t.mode);
+  const here = p.contextId === id;
+  const songs = q.data?.songs ?? [];
+
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: keys.playlist(id) });
     void qc.invalidateQueries({ queryKey: keys.playlists(user.id) });
   };
 
   return (
-    <Screen back title={q.data?.list.name} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+    <Screen
+      back
+      tint={tint}
+      title={q.data?.list.name}
+      actions={songs.length ? <PlayButton size={t.size.control.md} playing={here && p.isPlaying} label={q.data?.list.name ?? ''} onPress={() => (here ? player.toggle() : player.playList(songs, 0, id))} /> : null}
+      refreshing={q.isRefetching}
+      onRefresh={() => void q.refetch()}
+    >
       <Loadable query={q} label="Çalma listesi">
         {({ list, songs, owner }) => {
           const mine = list.user_id === user.id;
-          const here = p.contextId === id;
           return (
             <>
               <CollectionHead

@@ -8,6 +8,7 @@ import { Avatar } from '@/components/avatar';
 import { Card, CollectionHead, Loadable, Shelf } from '@/components/blocks';
 import { Screen, Section } from '@/components/screen';
 import { Button, T } from '@/components/ui';
+import { useCoverTint } from '@/lib/ambient';
 import { routes } from '@/lib/routes';
 import { useAuthed } from '@/lib/session';
 import { sb } from '@/lib/supabase';
@@ -35,8 +36,10 @@ export default function Profile() {
     },
   });
 
+  const tint = useCoverTint(q.data?.profile.avatar_url, t.mode);
+
   return (
-    <Screen back title={q.data?.profile.username ? `@${q.data.profile.username}` : undefined} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+    <Screen back tint={tint} title={q.data?.profile.username ? `@${q.data.profile.username}` : undefined} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
       <Loadable query={q} label="Profil">
         {({ profile, counts, following, badges, lists, summary }) => (
           <>

@@ -23,13 +23,19 @@ export default function Liked() {
   const art = t.size.artwork.xl;
 
   return (
-    <Screen back title="Beğenilen şarkılar" refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+    <Screen
+      back
+      title="Beğenilen şarkılar"
+      actions={q.data?.length ? <PlayButton size={t.size.control.md} playing={here && p.isPlaying} label="Beğenilen şarkılar" onPress={() => (here ? player.toggle() : player.playList(q.data, 0, 'liked'))} /> : null}
+      refreshing={q.isRefetching}
+      onRefresh={() => void q.refetch()}
+    >
       <CollectionHead
         kind="Çalma listesi"
         title="Beğenilen şarkılar"
         meta={`${profile.username ?? 'Sen'}${q.data ? ` · ${songCount(q.data)}` : ''}`}
         art={
-          <View style={{ width: art, height: art, borderRadius: t.radius.artwork.lg, backgroundColor: t.c.accent.default, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: art, height: art, borderRadius: t.radius.artwork.lg, backgroundColor: t.c.accent.default, boxShadow: t.shadow.lg, alignItems: 'center', justifyContent: 'center' }}>
             <Heart color={t.c.accent.on} fill={t.c.accent.on} size={t.size.artwork.sm} />
           </View>
         }

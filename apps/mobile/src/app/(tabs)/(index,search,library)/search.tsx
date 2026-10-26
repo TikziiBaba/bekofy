@@ -1,11 +1,11 @@
-import { searchArtists, searchProfiles, searchPublicPlaylists, searchSongs } from '@bekofy/core';
+import { newReleases, searchArtists, searchProfiles, searchPublicPlaylists, searchSongs } from '@bekofy/core';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Search as SearchIcon, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { Avatar } from '@/components/avatar';
-import { Card, Empty, PageTitle, Shelf } from '@/components/blocks';
+import { Card, Empty, Shelf } from '@/components/blocks';
 import { Screen, Section } from '@/components/screen';
 import { TrackList } from '@/components/track-list';
 import { IconButton, T } from '@/components/ui';
@@ -45,29 +45,40 @@ export default function Search() {
   });
   const d = enabled ? res.data : undefined;
   const nothing = d && !d.songs.length && !d.artists.length && !d.playlists.length && !d.people.length;
+  // Henüz bir şey yazılmamışken ekran boş kalmasın: yeni eklenenler (ana sayfayla aynı sorgu, önbellekten gelir).
+  const fresh = useQuery({ queryKey: ['new-releases'], queryFn: () => newReleases(sb, 20), enabled: !q.trim() });
 
   return (
-    <Screen>
-      <PageTitle>Ara</PageTitle>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space[2], paddingLeft: t.space[4], borderRadius: t.radius.full, backgroundColor: t.c.fill.muted, borderColor: t.c.border.strong, borderWidth: t.size.border.hairline, minHeight: t.size.control.lg + t.space[1] }}>
-        <SearchIcon color={t.c.text.secondary} size={t.size.icon.sm} />
-        <TextInput
-          value={q}
-          onChangeText={setQ}
-          accessibilityLabel="Şarkı, sanatçı, liste ya da kişi ara"
-          placeholder="Ne dinlemek istersin?"
-          placeholderTextColor={t.c.text.secondary}
-          selectionColor={t.c.accent.default}
-          cursorColor={t.c.accent.text}
-          returnKeyType="search"
-          autoCorrect={false}
-          style={[t.type.bodyMd, { flex: 1, color: t.c.text.primary, minHeight: t.size.control.lg }]}
-        />
-        {q ? <IconButton icon={X} label="Aramayı temizle" color={t.c.text.primary} onPress={() => setQ('')} /> : null}
-      </View>
-      <T accessibilityLiveRegion="polite" variant="bodySm" tone="secondary" style={{ marginTop: -t.space[5] }}>
+    <Screen
+      largeTitle="Ara"
+      sticky={
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space[2], paddingLeft: t.space[4], borderRadius: t.radius.full, backgroundColor: t.c.fill.muted, borderColor: t.c.border.strong, borderWidth: t.size.border.hairline, minHeight: t.size.control.lg + t.space[1] }}>
+          <SearchIcon color={t.c.text.secondary} size={t.size.icon.sm} />
+          <TextInput
+            value={q}
+            onChangeText={setQ}
+            accessibilityLabel="Şarkı, sanatçı, liste ya da kişi ara"
+            placeholder="Ne dinlemek istersin?"
+            placeholderTextColor={t.c.text.secondary}
+            selectionColor={t.c.accent.default}
+            cursorColor={t.c.accent.text}
+            returnKeyType="search"
+            autoCorrect={false}
+            style={[t.type.bodyMd, { flex: 1, color: t.c.text.primary, minHeight: t.size.control.lg }]}
+          />
+          {q ? <IconButton icon={X} label="Aramayı temizle" color={t.c.text.primary} onPress={() => setQ('')} /> : null}
+        </View>
+      }
+    >
+      <T accessibilityLiveRegion="polite" variant="bodySm" tone="secondary" style={{ marginTop: -t.space[4] }}>
         {!enabled ? 'En az iki harf yaz: şarkı, sanatçı, herkese açık liste ya da kişi.' : res.isFetching ? 'Aranıyor' : d ? `${d.songs.length} şarkı, ${d.artists.length} sanatçı, ${d.playlists.length} liste, ${d.people.length} kişi` : ''}
       </T>
+
+      {!q.trim() && fresh.data?.length ? (
+        <Section title="Yeni eklenenler">
+          <TrackList tracks={fresh.data.slice(0, 10)} contextId="new" />
+        </Section>
+      ) : null}
 
       {enabled && res.error ? <Empty title="Arama yapılamadı">İnternet bağlantını kontrol edip tekrar dene.</Empty> : null}
       {nothing ? <Empty title="Sonuç yok">Yazımı kontrol et ya da sanatçı adıyla dene.</Empty> : null}

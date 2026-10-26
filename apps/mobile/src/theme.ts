@@ -3,7 +3,7 @@
 
 import { dark, light, type Theme } from '@bekofy/tokens';
 import { useSyncExternalStore } from 'react';
-import { Appearance, type TextStyle } from 'react-native';
+import { Appearance, type BoxShadowValue, type TextStyle } from 'react-native';
 import { getSetting, setSetting, subscribeSettings } from '@/lib/settings';
 
 export const FONTS = {
@@ -25,6 +25,11 @@ const toText = (c: Composite): TextStyle => ({
   letterSpacing: c.letterSpacing,
 });
 
+type Layer = { offsetX: number; offsetY: number; blur: number; spread: number; color: string; inset?: boolean };
+/** Token gölgesi -> React Native boxShadow (yüzen katmanlar: kapak, mini oynatıcı, alt sayfa). */
+const toShadow = (layers: readonly Layer[]): BoxShadowValue[] =>
+  layers.map((l) => ({ offsetX: l.offsetX, offsetY: l.offsetY, blurRadius: l.blur, spreadDistance: l.spread, color: l.color, inset: l.inset }));
+
 function build(t: Theme) {
   const x = t.text as unknown as Record<string, Record<string, Composite> & Composite>;
   return {
@@ -33,6 +38,7 @@ function build(t: Theme) {
     space: t.space,
     radius: t.radius,
     size: t.size,
+    shadow: { sm: toShadow(t.shadow.sm), md: toShadow(t.shadow.md), lg: toShadow(t.shadow.lg), glass: toShadow(t.shadow.glass) },
     type: {
       displayXl: toText(x.display!.xl as Composite),
       displayLg: toText(x.display!.lg as Composite),
