@@ -11,10 +11,10 @@ export default function AuthCallback() {
   const t = useTheme();
   const { code } = useLocalSearchParams<{ code?: string }>();
   const { state, completeGoogleSignIn } = useSession();
-  const [done, setDone] = useState(!code);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (code) void completeGoogleSignIn(code).finally(() => setDone(true));
+    void completeGoogleSignIn(code ?? null).finally(() => setDone(true));
   }, [code, completeGoogleSignIn]);
 
   if (state.status === 'signed-in') return <Redirect href="/" />;

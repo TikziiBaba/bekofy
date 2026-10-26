@@ -75,11 +75,15 @@ export async function jamParticipants(sb: BekofyClient, sessionId: string) {
 
 /* ---------- Anlık eşitleme ---------- */
 
+/**
+ * play/pause/seek, çalan şarkıyı da taşır: henüz şarkısı olmayan (yeni katılmış) katılımcı da doğru şarkıyı başlatır.
+ * Eski sürüm sahipler songId göndermez; katılımcı o zaman oturumun veritabanındaki son durumuna bakar.
+ */
 export type JamSync =
   | { type: 'track'; songId: string; position: number; isPlaying: boolean }
-  | { type: 'play'; position: number }
-  | { type: 'pause'; position: number }
-  | { type: 'seek'; position: number }
+  | { type: 'play'; position: number; songId?: string }
+  | { type: 'pause'; position: number; songId?: string }
+  | { type: 'seek'; position: number; songId?: string }
   | { type: 'queue'; songIds: string[] };
 
 export type JamMessage = { type: 'chat'; userId: string; text: string };

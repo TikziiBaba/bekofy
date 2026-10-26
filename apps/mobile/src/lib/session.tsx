@@ -21,7 +21,7 @@ interface SessionApi {
   signIn(email: string, password: string): Promise<void>;
   signUp(input: { email: string; password: string; username: string }): Promise<{ needsConfirmation: boolean }>;
   signInWithGoogle(): Promise<void>;
-  completeGoogleSignIn(code: string): Promise<void>;
+  completeGoogleSignIn(code: string | null): Promise<void>;
   signOut(): Promise<void>;
   refreshProfile(): Promise<void>;
 }
@@ -42,7 +42,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Hata giriş ekranında uyarı olarak görünür; iki çağıran da aynı sözü bekler.
   const completeGoogleSignIn = useCallback(
-    (code: string) => {
+    (code: string | null) => {
+      // Dönüşte kod yoksa (izin verilmedi ya da akış bozuk) girişe sessizce dönmek yerine nedenini göster.
+      if (!code) {
+        setState((s) => (s.status === 'signed-in' ? s : { status: 'signed-out', notice: GOOGLE_FAILED }));
+        return Promise.resolve();
+      }
       if (googleExchange?.code === code) return googleExchange.done;
       const done = (async () => {
         try {

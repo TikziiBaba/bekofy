@@ -47,6 +47,10 @@ export function createBekofyClient(options: ClientOptions = {}): BekofyClient {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: options.detectSessionInUrl ?? false,
+      // Google/Apple dönüşü ?code=... ile gelir, uygulama kodu exchangeCodeForSession ile oturuma çevirir.
+      // Varsayılan "implicit" akışta jetonlar adresin # kısmında gelir; mobil ve masaüstü bunu okumadığı için
+      // tarayıcıdan dönülse de giriş tamamlanmıyordu.
+      flowType: 'pkce',
     },
   });
 }
