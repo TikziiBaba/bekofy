@@ -31,6 +31,27 @@ APK, GitHub'daki son sürüme eklenir; site Android indirme düğmesini oradan b
 gh release upload <son-sürüm-etiketi> apps/mobile/dist/Bekofy-<sürüm>.apk
 ```
 
+## Uygulama içi güncelleme (EAS Update)
+
+Yalnızca JS/TS kodu ve görseller değiştiyse yeni APK gerekmez. Uygulama açılışta güncellemeyi indirir,
+bir sonraki açılışta uygular ve "Uygulama güncellendi" penceresinde yenilikleri bir kez gösterir.
+EAS projesi `@tikzi/bekofy`; APK yine yerelde derlenir ve `app.json`'daki `updates.requestHeaders` ile
+`production` kanalını dinler.
+
+Önce `src/lib/changelog.json`'a bir önceki kaydın `id`'sinden büyük `id` ile yeni kayıt ekleyin
+(`items`: kullanıcının okuyacağı maddeler). Güncelleme mesajı da bu kayıttan alınır:
+
+```bash
+npm run update -w @bekofy/mobile
+```
+
+Yeni APK'yı ilk kez açan kullanıcıya liste gösterilmez (yenilikler sürüm notunda); yalnızca uygulama içi
+güncellemeden sonra çıkar.
+
+Güncelleme yalnızca aynı `version`'a (`app.json`, `runtimeVersion: appVersion`) sahip derlemelere gider.
+Yerel kod değiştiyse (yeni yerel paket, `app.json`'da izin/ikon/eklenti, SDK yükseltmesi) `version`'ı artırıp
+yeni APK derleyin. Güncelleme alabilmek için expo-updates içeren bir APK gerekir; önceki APK'lar almaz.
+
 ## Uçtan uca test
 
 `node apps/mobile/scripts/e2e.mjs`: emülatördeki uygulamayı geçici iki hesapla dener, sonunda hesapları siler.

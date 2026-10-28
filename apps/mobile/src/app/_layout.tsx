@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ToastView } from '@/components/toast-view';
+import { WhatsNew } from '@/components/whats-new';
 import { refreshOffline, setDownloadAllowed } from '@/lib/offline';
 import { player } from '@/lib/player';
 import { SessionProvider, useSession } from '@/lib/session';
@@ -78,6 +79,7 @@ function Root() {
           </Stack.Protected>
         </Stack>
         <ToastView />
+        <WhatsNew />
       </GestureHandlerRootView>
     </ThemeProvider>
   );

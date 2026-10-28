@@ -65,6 +65,21 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/00beddde-51a9-49f0-b469-541987dac903",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "00beddde-51a9-49f0-b469-541987dac903"
+      }
+    },
+    "owner": "tikzi"
   }
 }
